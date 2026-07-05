@@ -1,0 +1,92 @@
+<div class="upload-container">
+  <mat-card class="upload-card">
+
+    <!-- En-tête -->
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>document_scanner</mat-icon>
+        Scan a Document
+      </mat-card-title>
+      <mat-card-subtitle>
+        Upload an image of your document to extract information
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+
+      <!-- Message d'erreur -->
+      <div class="error-message" *ngIf="errorMessage">
+        <mat-icon>error_outline</mat-icon>
+        {{ errorMessage }}
+      </div>
+
+      <!-- Zone de drop — affichée si aucune image sélectionnée -->
+      <div
+        *ngIf="!previewUrl"
+        class="drop-zone"
+        (dragover)="onDragOver($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+      >
+        <mat-icon class="upload-icon">cloud_upload</mat-icon>
+        <p class="drop-title">Drag & drop your image here</p>
+        <p class="drop-subtitle">or click to browse</p>
+        <small>Supported : JPG, PNG, PDF — Max 5MB</small>
+
+        <!-- Input caché — déclenché par le click sur la zone -->
+        <input
+          #fileInput
+          type="file"
+          accept="image/*"
+          hidden
+          (change)="onFileSelected($event)"
+        />
+      </div>
+
+      <!-- Aperçu de l'image sélectionnée -->
+      <div *ngIf="previewUrl" class="preview-container">
+        <img [src]="previewUrl" alt="Document preview" class="preview-image" />
+
+        <!-- Bouton pour changer l'image -->
+        <button mat-stroked-button color="warn" (click)="resetSelection()">
+          <mat-icon>delete</mat-icon>
+          Remove
+        </button>
+      </div>
+
+      <!-- Type de document -->
+      <mat-form-field appearance="outline" class="full-width" *ngIf="previewUrl">
+        <mat-label>Document Type</mat-label>
+        <mat-select [(ngModel)]="documentType">
+          <mat-option value="invoice">Invoice</mat-option>
+          <mat-option value="contract">Contract</mat-option>
+          <mat-option value="purchase_order">Purchase Order</mat-option>
+          <mat-option value="other">Other</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Barre de progression pendant le scan -->
+      <mat-progress-bar
+        *ngIf="isLoading"
+        mode="indeterminate"
+        class="progress-bar"
+      />
+
+    </mat-card-content>
+
+    <!-- Bouton Submit -->
+    <mat-card-actions>
+      <button
+        mat-raised-button
+        color="primary"
+        class="full-width"
+        [disabled]="!previewUrl || isLoading"
+        (click)="onSubmit()"
+      >
+        <mat-icon>{{ isLoading ? 'hourglass_empty' : 'document_scanner' }}</mat-icon>
+        {{ isLoading ? 'Scanning...' : 'Scan Document' }}
+      </button>
+    </mat-card-actions>
+
+  </mat-card>
+</div>

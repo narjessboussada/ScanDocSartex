@@ -1,0 +1,107 @@
+﻿<div class="list-container">
+
+  <div class="page-header">
+    <div class="page-title">
+      <mat-icon>history</mat-icon>
+      <div>
+        <h1>Historique des scans</h1>
+        <p>Consultez et gérez vos documents scannés.</p>
+      </div>
+    </div>
+    <button mat-flat-button color="primary" class="primary-action" [routerLink]="['/upload']">
+      <mat-icon>add_a_photo</mat-icon>
+      Nouveau scan
+    </button>
+  </div>
+
+  <!-- Spinner de chargement -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="48" />
+    <p>Loading scans...</p>
+  </div>
+
+  <!-- Message d'erreur -->
+  <div class="error-message" *ngIf="errorMessage">
+    <mat-icon>error_outline</mat-icon>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Liste vide -->
+  <mat-card class="empty-state" *ngIf="!isLoading && scans.length === 0">
+    <mat-icon>inbox</mat-icon>
+    <p>Aucun scan pour le moment</p>
+    <button mat-flat-button color="primary" [routerLink]="['/upload']">
+      Scan du premier document
+    </button>
+  </mat-card>
+
+  <!-- Tableau des scans -->
+  <mat-card class="table-card" *ngIf="!isLoading && scans.length > 0">
+    <mat-card-content>
+      <div class="table-wrapper">
+        <table mat-table [dataSource]="scans" class="full-width">
+
+      <!-- Colonne ID -->
+      <ng-container matColumnDef="id">
+        <th mat-header-cell *matHeaderCellDef>#</th>
+        <td mat-cell *matCellDef="let scan">{{ scan.id }}</td>
+      </ng-container>
+
+      <!-- Colonne Filename -->
+      <ng-container matColumnDef="filename">
+        <th mat-header-cell *matHeaderCellDef>Document</th>
+        <td mat-cell *matCellDef="let scan">
+          <div class="filename-cell">
+            <mat-icon>description</mat-icon>
+            {{ scan.filename }}
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Colonne Status -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let scan">
+          <span class="status-badge" [ngClass]="'status-' + scan.status">
+            {{ scan.status }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Colonne Date -->
+      <ng-container matColumnDef="createdAt">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let scan">
+          {{ scan.createdAt | date:'dd/MM/yyyy HH:mm' }}
+        </td>
+      </ng-container>
+
+      <!-- Colonne Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell class="actions-cell" *matCellDef="let scan">
+          <button mat-icon-button color="primary"
+            (click)="viewScan(scan.id)"
+            matTooltip="View details">
+            <mat-icon>visibility</mat-icon>
+          </button>
+          <button mat-icon-button color="warn"
+            (click)="deleteScan(scan.id); $event.stopPropagation()"
+            matTooltip="Delete">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+        class="scan-row"
+        (click)="viewScan(row.id)">
+      </tr>
+
+        </table>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+</div>

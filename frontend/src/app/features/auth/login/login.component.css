@@ -1,0 +1,61 @@
+/* Centre la carte au milieu de l'écran */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 16px;
+}
+
+/* En-tête avec icône */
+mat-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px !important;
+  font-weight: 700;
+}
+
+mat-card-title mat-icon {
+  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  color: #3f51b5;
+}
+
+/* Message d'erreur */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* Chaque champ prend toute la largeur */
+.full-width {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* Spinner centré dans le bouton */
+mat-spinner {
+  display: inline-block;
+}

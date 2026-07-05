@@ -1,0 +1,352 @@
+﻿<div class="detail-container">
+
+  <!-- Spinner -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="48"></mat-spinner>
+    <p>Chargement du document...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading && scan">
+
+    <!-- ── En-tête ── -->
+    <div class="page-header">
+      <div class="header-left">
+        <button mat-icon-button [routerLink]="['/scans']">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <div>
+          <h1 class="page-title">Facture d'Achat</h1>
+          <span class="page-subtitle"># {{ scan.id }} · {{ scan.filename }}</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="status-chip" [class]="'status-' + scan.status">{{ scan.status }}</span>
+        <button mat-stroked-button (click)="downloadPDF()">
+          <mat-icon>picture_as_pdf</mat-icon>
+          PDF
+        </button>
+        <button mat-raised-button class="btn-valider"
+          (click)="validateAll(); showModal = true"
+          [disabled]="fields.length === 0">
+          <mat-icon>check</mat-icon>
+          Valider
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Grille principale ── -->
+    <div class="main-grid">
+
+      <!-- COLONNE GAUCHE : Image -->
+      <div class="left-col">
+        <div class="doc-card">
+          <div class="doc-card-header">
+            <mat-icon>image</mat-icon>
+            <span>Document scanné</span>
+          </div>
+          <div class="doc-card-body">
+            <img *ngIf="imageBase64" [src]="imageBase64" alt="Document" class="doc-image"/>
+            <div *ngIf="!imageBase64" class="no-image">
+              <mat-icon>image_not_supported</mat-icon>
+              <p>Image non disponible</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLONNE DROITE : Formulaire facture -->
+      <div class="right-col">
+
+        <!-- Barre de progression -->
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill"
+              [style.width.%]="(fields | validatedCount) / fields.length * 100">
+            </div>
+          </div>
+          <span class="progress-text">
+            {{ fields | validatedCount }}/{{ fields.length }} validés
+          </span>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="invoice-form">
+
+          <!-- Date d'émission -->
+          <div class="form-section">
+            <div class="form-row-single">
+              <div class="form-group" *ngFor="let field of getFieldsByCategory('date')">
+                <label class="form-label">{{ formatFieldName(field.field_name) }}</label>
+                <div class="input-wrap" [class.validated]="field.is_validated">
+                  <input
+                    *ngIf="editingFieldId !== field.id"
+                    class="form-input"
+                    [value]="field.corrected_value || field.field_value"
+                    readonly
+                    (click)="startEdit(field)"/>
+                  <input
+                    *ngIf="editingFieldId === field.id"
+                    [type]="isDateField(field.field_name) ? 'date' : 'text'"
+                    class="form-input editing"
+                    [(ngModel)]="editingValue"
+                    (keyup.enter)="saveEdit(field)"
+                    (keyup.escape)="cancelEdit()"
+                    autofocus/>
+                  <div class="input-actions">
+                    <ng-container *ngIf="editingFieldId === field.id">
+                      <button mat-icon-button color="primary" (click)="saveEdit(field)">
+                        <mat-icon>check</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="cancelEdit()">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="editingFieldId !== field.id">
+                      <mat-icon class="valid-icon" *ngIf="field.is_validated">check_circle</mat-icon>
+                      <button mat-icon-button (click)="startEdit(field)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                    </ng-container>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fournisseur + Référence -->
+          <div class="form-section">
+            <div class="form-row-triple">
+              <div class="form-group" *ngFor="let field of getFieldsByCategory('fournisseur')">
+                <label class="form-label">{{ formatFieldName(field.field_name) }}</label>
+                <div class="input-wrap" [class.validated]="field.is_validated">
+                  <input
+                    *ngIf="editingFieldId !== field.id"
+                    class="form-input"
+                    [value]="field.corrected_value || field.field_value"
+                    readonly
+                    (click)="startEdit(field)"/>
+                  <input
+                    *ngIf="editingFieldId === field.id"
+                    type="text"
+                    class="form-input editing"
+                    [(ngModel)]="editingValue"
+                    (keyup.enter)="saveEdit(field)"
+                    (keyup.escape)="cancelEdit()"
+                    autofocus/>
+                  <div class="input-actions">
+                    <ng-container *ngIf="editingFieldId === field.id">
+                      <button mat-icon-button color="primary" (click)="saveEdit(field)">
+                        <mat-icon>check</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="cancelEdit()">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="editingFieldId !== field.id">
+                      <mat-icon class="valid-icon" *ngIf="field.is_validated">check_circle</mat-icon>
+                      <button mat-icon-button (click)="startEdit(field)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                    </ng-container>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+      <!-- Tableau des articles -->
+<div class="form-section" *ngIf="getArticles().length > 0">
+  <h3 class="section-title">Articles</h3>
+  <div class="table-scroll">
+    <table class="articles-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th *ngIf="getArticles()[0]?.code">Code</th>
+          <th>Désignation</th>
+          <th>Qté</th>
+          <th>Prix Unitaire</th>
+          <th>Total HT</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let article of getArticles()">
+          <td class="col-num">{{ article.num }}</td>
+
+          <!-- Code (si existe) -->
+          <td *ngIf="article.code" class="col-code">
+            <div class="cell-wrap" [class.validated]="article.code.is_validated">
+              <span *ngIf="editingFieldId !== article.code.id"
+                class="cell-text" (click)="article.code && startEdit(article.code)">
+                {{ article.code.corrected_value || article.code.field_value || '—' }}
+              </span>
+              <input *ngIf="editingFieldId === article.code.id"
+                type="text" class="cell-input" [(ngModel)]="editingValue"
+                (keyup.enter)="article.code && saveEdit(article.code)"
+                (keyup.escape)="cancelEdit()"/>
+              <mat-icon class="cell-valid" *ngIf="article.code.is_validated">check_circle</mat-icon>
+            </div>
+          </td>
+
+          <!-- Description -->
+          <td class="col-desc">
+            <div class="cell-wrap" [class.validated]="article.desc?.is_validated">
+              <span *ngIf="editingFieldId !== article.desc?.id"
+                class="cell-text" (click)="article.desc && startEdit(article.desc)">
+                {{ article.desc?.corrected_value || article.desc?.field_value || '—' }}
+              </span>
+              <input *ngIf="editingFieldId === article.desc?.id"
+                type="text" class="cell-input" [(ngModel)]="editingValue"
+                (keyup.enter)="article.desc && saveEdit(article.desc)"
+                (keyup.escape)="cancelEdit()"/>
+              <mat-icon class="cell-valid" *ngIf="article.desc?.is_validated">check_circle</mat-icon>
+            </div>
+          </td>
+
+          <!-- Quantité -->
+          <td class="col-qte">
+            <div class="cell-wrap" [class.validated]="article.qte?.is_validated">
+              <span *ngIf="editingFieldId !== article.qte?.id"
+                class="cell-text center" (click)="article.qte && startEdit(article.qte)">
+                {{ article.qte?.corrected_value || article.qte?.field_value || '—' }}
+              </span>
+              <input *ngIf="editingFieldId === article.qte?.id"
+                type="text" class="cell-input center" [(ngModel)]="editingValue"
+                (keyup.enter)="article.qte && saveEdit(article.qte)"
+                (keyup.escape)="cancelEdit()"/>
+              <mat-icon class="cell-valid" *ngIf="article.qte?.is_validated">check_circle</mat-icon>
+            </div>
+          </td>
+
+          <!-- Prix Unitaire -->
+          <td class="col-pu">
+            <div class="cell-wrap" [class.validated]="article.pu?.is_validated">
+              <span *ngIf="editingFieldId !== article.pu?.id"
+                class="cell-text right" (click)="article.pu && startEdit(article.pu)">
+                {{ article.pu?.corrected_value || article.pu?.field_value || '—' }}
+              </span>
+              <input *ngIf="editingFieldId === article.pu?.id"
+                type="text" class="cell-input right" [(ngModel)]="editingValue"
+                (keyup.enter)="article.pu && saveEdit(article.pu)"
+                (keyup.escape)="cancelEdit()"/>
+              <mat-icon class="cell-valid" *ngIf="article.pu?.is_validated">check_circle</mat-icon>
+            </div>
+          </td>
+
+          <!-- Total HT -->
+          <td class="col-total">
+            <div class="cell-wrap" [class.validated]="article.total?.is_validated">
+              <span *ngIf="editingFieldId !== article.total?.id"
+                class="cell-text right" (click)="article.total && startEdit(article.total)">
+                {{ article.total?.corrected_value || article.total?.field_value || '—' }}
+              </span>
+              <input *ngIf="editingFieldId === article.total?.id"
+                type="text" class="cell-input right" [(ngModel)]="editingValue"
+                (keyup.enter)="article.total && saveEdit(article.total)"
+                (keyup.escape)="cancelEdit()"/>
+              <mat-icon class="cell-valid" *ngIf="article.total?.is_validated">check_circle</mat-icon>
+            </div>
+          </td>
+
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+          <!-- Autres champs -->
+          <div class="form-section" *ngIf="getFieldsByCategory('autres').length > 0">
+            <h3 class="section-title">Informations complémentaires</h3>
+            <div class="autres-grid">
+              <div class="form-group" *ngFor="let field of getFieldsByCategory('autres')">
+                <label class="form-label">{{ formatFieldName(field.field_name) }}</label>
+                <div class="input-wrap" [class.validated]="field.is_validated">
+                  <input
+                    *ngIf="editingFieldId !== field.id"
+                    class="form-input"
+                    [value]="field.corrected_value || field.field_value"
+                    readonly
+                    (click)="startEdit(field)"/>
+                  <input
+                    *ngIf="editingFieldId === field.id"
+                    type="text"
+                    class="form-input editing"
+                    [(ngModel)]="editingValue"
+                    (keyup.enter)="saveEdit(field)"
+                    (keyup.escape)="cancelEdit()"/>
+                  <div class="input-actions">
+                    <ng-container *ngIf="editingFieldId === field.id">
+                      <button mat-icon-button color="primary" (click)="saveEdit(field)">
+                        <mat-icon>check</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="cancelEdit()">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="editingFieldId !== field.id">
+                      <mat-icon class="valid-icon" *ngIf="field.is_validated">check_circle</mat-icon>
+                      <button mat-icon-button (click)="startEdit(field)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                    </ng-container>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button mat-stroked-button (click)="downloadPDF()">
+              <mat-icon>picture_as_pdf</mat-icon>
+              Télécharger PDF
+            </button>
+            <button mat-raised-button color="primary"
+              (click)="validateAll(); showModal = true"
+              [disabled]="fields.length === 0">
+              <mat-icon>done_all</mat-icon>
+              Tout valider
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <!-- Erreur -->
+  <div class="error-msg" *ngIf="errorMessage">
+    <mat-icon>error_outline</mat-icon>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" *ngIf="showModal" (click)="showModal = false">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-success-icon">
+        <mat-icon>check_circle</mat-icon>
+      </div>
+      <h2 class="modal-title">Document validé avec succès</h2>
+      <p class="modal-subtitle">Que souhaitez-vous faire ensuite ?</p>
+      <div class="modal-actions">
+        <button class="modal-btn" (click)="showModal = false">
+          <mat-icon>visibility</mat-icon>Voir
+        </button>
+        <button class="modal-btn" (click)="downloadPDF(); showModal = false">
+          <mat-icon>download</mat-icon>Télécharger PDF
+        </button>
+        <button class="modal-btn" (click)="sendEmail(); showModal = false">
+          <mat-icon>email</mat-icon>Envoyer par email
+        </button>
+        <button class="modal-btn" (click)="duplicateScan(); showModal = false">
+          <mat-icon>content_copy</mat-icon>Dupliquer
+        </button>
+      </div>
+      <button class="modal-close" (click)="showModal = false">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
+</div>

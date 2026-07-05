@@ -1,0 +1,47 @@
+<mat-toolbar color="primary">
+
+  <!-- Logo + nom -->
+  <a routerLink="/scans" class="brand">
+    <mat-icon>document_scanner</mat-icon>
+    <span>ScanDoc</span>
+  </a>
+
+  <!-- Espace flexible — pousse les éléments suivants à droite -->
+  <span class="spacer"></span>
+
+  <!-- Liens de navigation -->
+  <nav>
+    <a mat-button routerLink="/scans" routerLinkActive="active-link">
+      <mat-icon>list</mat-icon>
+      Scans
+    </a>
+    <a mat-button routerLink="/upload" routerLinkActive="active-link">
+      <mat-icon>add_a_photo</mat-icon>
+      New Scan
+    </a>
+  </nav>
+
+  <!-- Menu utilisateur -->
+  <!-- *ngIf avec async pipe — affiche seulement si connecté -->
+  <ng-container *ngIf="authService.currentUser$ | async as user">
+    <button mat-button [matMenuTriggerFor]="userMenu">
+      <mat-icon>account_circle</mat-icon>
+      <span>{{ getUserDisplayName(user) }}</span>
+      <mat-icon>arrow_drop_down</mat-icon>
+    </button>
+
+    <!-- Menu déroulant -->
+    <mat-menu #userMenu="matMenu">
+      <div class="menu-header">
+        <small>Signed in as</small>
+        <strong>{{ getUserDisplayName(user) }}</strong>
+      </div>
+      <mat-divider />
+      <button mat-menu-item (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        Sign out
+      </button>
+    </mat-menu>
+  </ng-container>
+
+</mat-toolbar>

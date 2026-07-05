@@ -1,0 +1,95 @@
+.upload-container {
+  max-width: 600px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+.upload-card {
+  padding: 16px;
+}
+
+mat-card-header {
+  margin-bottom: 24px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px !important;
+}
+
+/* Zone drag & drop */
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed #90caf9;
+  border-radius: 12px;
+  padding: 48px 24px;
+  cursor: pointer;
+  background: #f8f9ff;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.drop-zone:hover {
+  border-color: #3f51b5;
+  background: #e8eaf6;
+}
+
+.upload-icon {
+  font-size: 56px !important;
+  width: 56px !important;
+  height: 56px !important;
+  color: #3f51b5;
+}
+
+.drop-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.drop-subtitle {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Aperçu image */
+.preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.preview-image {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.full-width { width: 100%; }
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.progress-bar { margin: 16px 0; }
+
+mat-card-actions {
+  padding: 16px !important;
+}

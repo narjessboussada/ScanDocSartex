@@ -1,0 +1,79 @@
+<div class="login-container">
+  <mat-card class="login-card">
+
+    <!-- En-tête -->
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>document_scanner</mat-icon>
+        ScanDoc
+      </mat-card-title>
+      <mat-card-subtitle>Sign in to your account</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+
+      <!-- Message d'erreur — affiché seulement si errorMessage n'est pas vide -->
+      <!-- *ngIf = directive Angular : affiche l'élément si la condition est vraie -->
+      <div class="error-message" *ngIf="errorMessage">
+        <mat-icon>error_outline</mat-icon>
+        {{ errorMessage }}
+      </div>
+
+      <!-- Formulaire — [formGroup] lie le HTML au FormGroup TypeScript -->
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+
+        <!-- Champ Email -->
+        <!-- mat-form-field = conteneur Angular Material pour les inputs -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <input
+            matInput
+            type="email"
+            formControlName="email"
+            placeholder="admin@scandoc.com"
+          />
+          <mat-icon matSuffix>email</mat-icon>
+
+          <!-- Erreurs de validation — affichées si le champ est touché et invalide -->
+          <mat-error *ngIf="email?.hasError('required')">Email is required</mat-error>
+          <mat-error *ngIf="email?.hasError('email')">Invalid email format</mat-error>
+        </mat-form-field>
+
+        <!-- Champ Password -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input
+            matInput
+            [type]="hidePassword ? 'password' : 'text'"
+            formControlName="password"
+          />
+          <!-- Bouton pour afficher/masquer le mot de passe -->
+          <!-- (click) = événement Angular, comme onclick en HTML classique -->
+          <button mat-icon-button matSuffix type="button"
+            (click)="hidePassword = !hidePassword">
+            <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+
+          <mat-error *ngIf="password?.hasError('required')">Password is required</mat-error>
+          <mat-error *ngIf="password?.hasError('minlength')">Minimum 6 characters</mat-error>
+        </mat-form-field>
+
+        <!-- Bouton Submit -->
+        <!-- [disabled] = désactivé pendant le chargement -->
+        <button
+          mat-raised-button
+          color="primary"
+          type="submit"
+          class="full-width"
+          [disabled]="isLoading"
+        >
+          <!-- Spinner pendant l'appel API, texte sinon -->
+          <mat-spinner *ngIf="isLoading" diameter="20" />
+          <span *ngIf="!isLoading">Sign In</span>
+        </button>
+
+      </form>
+    </mat-card-content>
+
+  </mat-card>
+</div>
