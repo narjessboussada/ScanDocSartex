@@ -13,7 +13,7 @@ const scanValidator = {
       return next(createError('image_base64 is required', 400));
 
     // Vérifier que c'est bien du base64
-    const base64Regex = /^data:image\/(jpeg|jpg|png|pdf);base64,/;
+const base64Regex = /^data:(image\/(jpeg|jpg|png|gif|webp|bmp|tiff)|application\/pdf);base64,/;
     if (!base64Regex.test(image_base64))
       return next(createError('image_base64 must be a valid base64 image (jpeg, png, pdf)', 400));
 
