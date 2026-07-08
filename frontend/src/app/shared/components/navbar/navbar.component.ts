@@ -26,7 +26,7 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog/confirm-
     MatDividerModule,
   ],
   templateUrl: './navbar.component.html',
-  styleUrl: './navbar.component.css',
+  styleUrls: ['./navbar.component.css'],
 })
 export class NavbarComponent {
   authService = inject(AuthService);

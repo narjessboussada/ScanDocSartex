@@ -210,6 +210,57 @@ const scanService = {
 
     return { fieldId };
   },
+
+
+
+
+  // Permet de tester avec le JSON de l'API entreprise directement
+async processerJSONEntreprise(userId, jsonData, filename = 'facture.json') {
+  const pool = await connectDB();
+
+  // Traite le JSON
+  const ocrResult = ocrService.traiterJSONEntreprise(jsonData);
+
+  // Sauvegarde le document
+  const scanInsert = await pool.request()
+    .input('user_id',      sql.Int,               userId)
+    .input('filename',     sql.NVarChar,          filename)
+    .input('status',       sql.NVarChar,          'pending')
+    .input('image_base64', sql.NVarChar(sql.MAX), '')
+    .query(`
+      INSERT INTO scans (user_id, filename, status, image_base64)
+      OUTPUT INSERTED.id
+      VALUES (@user_id, @filename, @status, @image_base64)
+    `);
+
+  const scanId = scanInsert.recordset[0].id;
+
+  // Sauvegarde le texte brut
+  const pool2 = await connectDB();
+  await pool2.request()
+    .input('id',       sql.Int,               scanId)
+    .input('raw_text', sql.NVarChar(sql.MAX), ocrResult.rawText)
+    .query(`UPDATE scans SET status = 'completed', raw_text = @raw_text WHERE id = @id`);
+
+  // Sauvegarde les champs
+  for (const field of ocrResult.fields) {
+    const pool3 = await connectDB();
+    await pool3.request()
+      .input('scan_id',    sql.Int,     scanId)
+      .input('field_name', sql.NVarChar, field.name)
+      .input('field_value',sql.NVarChar, field.value || '')
+      .query(`INSERT INTO extracted_data (scan_id, field_name, field_value)
+              VALUES (@scan_id, @field_name, @field_value)`);
+  }
+
+  return { scanId, status: 'completed', rawText: ocrResult.rawText, fields: ocrResult.fields };
+},
+
+
+
+
+
+
 };
 
 module.exports = scanService;

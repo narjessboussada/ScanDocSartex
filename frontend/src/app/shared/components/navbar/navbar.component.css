@@ -2,17 +2,37 @@ mat-toolbar {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  min-height: 72px;
+  background: #1e3a8a;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
+  color: white;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   text-decoration: none;
   color: white;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.brand mat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.12);
+  color: #bfdbfe;
+  font-size: 24px;
 }
 
 /* Pousse tout ce qui suit vers la droite */
@@ -20,26 +40,44 @@ mat-toolbar {
 
 nav {
   display: flex;
-  gap: 4px;
+  gap: 10px;
 }
 
 nav a {
-  color: white !important;
-  opacity: 0.85;
+  color: rgba(255,255,255,0.88) !important;
+  opacity: 0.95;
+  border-radius: 12px;
+  padding: 10px 14px;
+  transition: background 0.2s, color 0.2s;
 }
 
-/* Lien actif — page courante */
+nav a:hover,
 nav a.active-link {
   opacity: 1;
-  background: rgba(255,255,255,0.15);
-  border-radius: 4px;
+  background: rgba(255,255,255,0.16);
+  color: #ffffff !important;
 }
 
 .menu-header {
   display: flex;
   flex-direction: column;
-  padding: 12px 16px;
-  gap: 2px;
+  padding: 16px 20px;
+  gap: 4px;
+  min-width: 260px;
+}
+
+mat-menu {
+  min-width: 260px;
+}
+
+.menu-header small {
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.menu-header strong {
+  color: #111827;
+  font-size: 0.98rem;
 }
 
 .role-badge {

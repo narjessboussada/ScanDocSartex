@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +19,7 @@ import { ScanService } from '../../../core/services/scan.service';
   imports: [
     CommonModule,
     FormsModule,
+    RouterModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -26,20 +28,21 @@ import { ScanService } from '../../../core/services/scan.service';
     MatFormFieldModule,
   ],
   templateUrl: './scan-upload.component.html',
-  styleUrl: './scan-upload.component.css',
+  styleUrls: ['./scan-upload.component.css'],
 })
 export class ScanUploadComponent {
-scanService = inject(ScanService); // enlève "private"
+scanService = inject(ScanService); 
   private router      = inject(Router);
 
   // État du composant
   selectedFile  : File | null = null;  // fichier sélectionné
   previewUrl    : string = '';         // aperçu de l'image
+  isPdfPreview  : boolean = false;     // apercu PDF sans image
   isLoading     : boolean = false;     // true pendant l'appel API
   errorMessage  : string = '';         // message d'erreur
   documentType  : string = 'invoice';  // type de document choisi
 
-  // ── Sélection d'une image depuis le disque ──────────────────
+  // ── Sélection d'une image ou d'un PDF depuis le disque ──────
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
@@ -49,13 +52,11 @@ scanService = inject(ScanService); // enlève "private"
   }
 
   // ── Drag & Drop ─────────────────────────────────────────────
-  // dragover : l'utilisateur glisse un fichier au-dessus de la zone
   onDragOver(event: DragEvent) {
-    event.preventDefault(); // empêche le comportement par défaut (ouvrir le fichier)
+    event.preventDefault();
     event.stopPropagation();
   }
 
-  // drop : l'utilisateur lâche le fichier dans la zone
   onDrop(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
@@ -66,22 +67,20 @@ scanService = inject(ScanService); // enlève "private"
 
   // ── Traitement du fichier sélectionné ───────────────────────
   private processFile(file: File) {
-    // Vérifie que c'est bien une image
-    if (!file.type.startsWith('image/')) {
-      this.errorMessage = 'Please select an image file (JPG, PNG, etc.)';
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      this.errorMessage = 'Veuillez sélectionner un fichier JPG, PNG ou PDF.';
       return;
     }
 
-    // Vérifie la taille (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      this.errorMessage = 'Image too large. Maximum size is 5MB.';
+      this.errorMessage = 'Le fichier est trop volumineux. 5 Mo maximum.';
       return;
     }
 
-    this.selectedFile  = file;
-    this.errorMessage  = '';
+    this.selectedFile = file;
+    this.errorMessage = '';
+    this.isPdfPreview = file.type === 'application/pdf';
 
-    // Génère un aperçu de l'image avec FileReader
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
@@ -93,25 +92,26 @@ scanService = inject(ScanService); // enlève "private"
   resetSelection() {
     this.selectedFile = null;
     this.previewUrl   = '';
+    this.isPdfPreview = false;
     this.errorMessage = '';
   }
 
   // ── Envoi au backend ─────────────────────────────────────────
-onSubmit() {
-  if (!this.selectedFile || !this.previewUrl) return;
+  onSubmit() {
+    if (!this.selectedFile) return;
 
-  this.isLoading    = true;
-  this.errorMessage = '';
+    this.isLoading    = true;
+    this.errorMessage = '';
 
-  this.scanService.createScan(this.previewUrl, this.selectedFile.name).subscribe({
-    next: (res) => {
-      const scanId = res.data.scanId;
-      this.router.navigate(['/scans', scanId]);
-    },
-    error: (err) => {
-      this.errorMessage = err.error?.message || 'Scan failed. Please try again.';
-      this.isLoading = false;
-    },
-  });
-}
+    this.scanService.createScan(this.previewUrl, this.selectedFile.name).subscribe({
+      next: (res) => {
+        const scanId = res.data.scanId;
+        this.router.navigate(['/scans', scanId]);
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'Échec du scan. Veuillez réessayer.';
+        this.isLoading = false;
+      },
+    });
+  }
 }

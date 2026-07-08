@@ -4,6 +4,7 @@ import { Field } from '../../core/services/scan.service';
 @Pipe({
   name: 'validatedCount',
   standalone: true,
+  pure: false,
 })
 export class ValidatedCountPipe implements PipeTransform {
   transform(fields: Field[]): number {

@@ -1,95 +1,198 @@
-.upload-container {
-  max-width: 600px;
-  margin: 32px auto;
-  padding: 0 16px;
+.upload-shell {
+  max-width: 680px;
+  margin: 16px auto;
+  padding: 0 12px;
+}
+
+.upload-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.header-copy {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.upload-title-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(63, 81, 181, 0.08);
+  color: #1a237e;
+}
+
+.upload-title-icon mat-icon {
+  font-size: 28px;
+}
+
+.upload-header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.upload-header p {
+  margin: 6px 0 0;
+  color: #5f6368;
 }
 
 .upload-card {
   padding: 16px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
 }
 
-mat-card-header {
-  margin-bottom: 24px;
+.upload-panel {
+  display: grid;
+  gap: 20px;
 }
 
-mat-card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 20px !important;
-}
-
-/* Zone drag & drop */
-.drop-zone {
+.upload-drop-zone {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 2px dashed #90caf9;
+  padding: 24px 16px;
+  border: 2px dashed #c5cae9;
   border-radius: 12px;
-  padding: 48px 24px;
+  background: #f6f7ff;
+  color: #1f2937;
+  text-align: center;
   cursor: pointer;
-  background: #f8f9ff;
-  transition: all 0.2s ease;
-  margin-bottom: 16px;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
-.drop-zone:hover {
-  border-color: #3f51b5;
-  background: #e8eaf6;
+.upload-drop-zone:hover,
+.upload-drop-zone:focus {
+  transform: translateY(-1px);
+  border-color: #1a237e;
+  background: #eef2ff;
 }
 
-.upload-icon {
-  font-size: 56px !important;
-  width: 56px !important;
-  height: 56px !important;
-  color: #3f51b5;
+.upload-zone-icon {
+  font-size: 48px;
+  color: #1a237e;
 }
 
-.drop-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
+.upload-drop-zone h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
-.drop-subtitle {
-  font-size: 14px;
-  color: #666;
+.upload-drop-zone p,
+.upload-drop-zone span {
+  margin: 0;
+  color: #4b5563;
 }
 
-/* Aperçu image */
-.preview-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+.upload-preview {
+  display: grid;
+  gap: 16px;
+}
+
+.preview-card {
+  min-height: 220px;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+  background: #f8fafc;
+  display: grid;
+  place-items: center;
+}
+
+.preview-card.pdf-preview {
+  padding: 24px;
 }
 
 .preview-image {
   width: 100%;
-  max-height: 300px;
+  height: auto;
   object-fit: contain;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
 }
 
-.full-width { width: 100%; }
+.pdf-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.pdf-placeholder mat-icon {
+  font-size: 42px;
+}
+
+.preview-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.file-meta h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.file-meta p {
+  margin: 6px 0 0;
+  color: #4b5563;
+}
+
+.upload-options {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
 
 .error-message {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #ffebee;
-  color: #c62828;
-  padding: 12px;
-  border-radius: 4px;
-  margin-bottom: 16px;
+  gap: 10px;
+  background: #fbe9e7;
+  color: #b91c1c;
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-bottom: 20px;
 }
 
-.progress-bar { margin: 16px 0; }
+.progress-bar {
+  margin-top: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+}
 
 mat-card-actions {
-  padding: 16px !important;
+  padding: 20px 0 0 !important;
+}
+
+mat-card-actions .full-width {
+  height: 40px;
+}
+
+@media (max-width: 720px) {
+  .upload-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .preview-details {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

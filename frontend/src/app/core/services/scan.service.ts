@@ -7,6 +7,7 @@ export interface Field {
   field_name: string;
   field_value: string;
   is_validated: boolean;
+  is_rejected?: boolean;
   corrected_value: string | null;
 }
 
@@ -48,6 +49,14 @@ export class ScanService {
       return res;
     })
   );
+}
+
+// Envoie directement un JSON de facture (format API entreprise)
+processJSON(jsonData: any, filename: string = 'facture.json') {
+  return this.http.post<any>(`${this.apiUrl}/json`, {
+    json_data: jsonData,
+    filename
+  });
 }
 
   // Récupère un scan avec ses champs extraits

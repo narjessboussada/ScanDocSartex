@@ -1,7 +1,25 @@
 mat-dialog-content {
-  min-width: 280px;
+  min-width: 320px;
+  padding: 24px 0;
+}
+
+mat-dialog-content p {
+  margin: 0;
+  color: #374151;
+  line-height: 1.6;
 }
 
 mat-dialog-actions {
-  margin-top: 16px;
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+button[mat-button] {
+  min-width: 96px;
+}
+
+button[mat-raised-button] {
+  min-width: 120px;
 }

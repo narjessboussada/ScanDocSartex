@@ -25,8 +25,9 @@ import { ScanService, Scan } from '../../../core/services/scan.service';
     MatTooltipModule,
   ],
   templateUrl: './scan-list.component.html',
-  styleUrl: './scan-list.component.css',
+  styleUrls: ['./scan-list.component.css'],
 })
+
 export class ScanListComponent implements OnInit {
   private scanService = inject(ScanService);
   private router      = inject(Router);

@@ -17,7 +17,7 @@ import { NavbarComponent } from './shared/components/navbar/navbar.component';
   `,
   styles: [`
     main { padding: 0; }
-    main.with-navbar { padding-top: 16px; }
+    main.with-navbar { padding-top: 0; }
   `],
 })
 export class AppComponent {
