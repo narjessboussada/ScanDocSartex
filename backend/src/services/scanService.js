@@ -9,6 +9,7 @@ const createError = (message, statusCode) => {
 
 const scanService = {
 
+  // ── Créer un scan à partir d'une image ──────────────────
   async createScan(userId, imageBase64, filename = 'scan.jpg') {
     const pool = await connectDB();
 
@@ -65,6 +66,7 @@ const scanService = {
     };
   },
 
+  // ── Récupérer l'historique ──────────────────────────────
   async getHistory(userId, isAdmin) {
     const pool = await connectDB();
 
@@ -86,6 +88,7 @@ const scanService = {
     return result.recordset;
   },
 
+  // ── Récupérer un scan par ID ────────────────────────────
   async getScanById(scanId, userId, isAdmin) {
     const pool = await connectDB();
 
@@ -122,6 +125,7 @@ const scanService = {
     };
   },
 
+  // ── Mettre à jour les infos de base du scan ──────────────
   async updateScan(scanId, userId, isAdmin, { filename, status }) {
     const pool = await connectDB();
 
@@ -152,6 +156,7 @@ const scanService = {
     return result.recordset[0];
   },
 
+  // ── Supprimer un scan ───────────────────────────────────
   async deleteScan(scanId, userId, isAdmin) {
     const pool = await connectDB();
 
@@ -178,6 +183,7 @@ const scanService = {
     return { scanId };
   },
 
+  // ── Valider un seul champ ───────────────────────────────
   async validateField(fieldId, isValidated, correctedValue) {
     const pool = await connectDB();
 
@@ -198,6 +204,33 @@ const scanService = {
     return { fieldId, isValidated, correctedValue };
   },
 
+  // ── Sauvegarder TOUS les champs d'un coup (Android) ──────
+  async saveAllFields(scanId, fieldUpdates) {
+    // fieldUpdates est un objet { "id_du_champ": "valeur" }
+    for (const [fieldId, value] of Object.entries(fieldUpdates)) {
+      const pool = await connectDB();
+      await pool.request()
+        .input('id',              sql.Int,     fieldId)
+        .input('scan_id',         sql.Int,     scanId)
+        .input('is_validated',    sql.Bit,     1)
+        .input('corrected_value', sql.NVarChar, value || null)
+        .query(`
+          UPDATE extracted_data
+          SET is_validated    = @is_validated,
+              corrected_value = @corrected_value
+          WHERE id = @id AND scan_id = @scan_id
+        `);
+    }
+
+    const finalPool = await connectDB();
+    await finalPool.request()
+      .input('id', sql.Int, scanId)
+      .query("UPDATE scans SET status = 'completed' WHERE id = @id");
+
+    return { scanId, updatedFields: Object.keys(fieldUpdates).length };
+  },
+
+  // ── Supprimer un champ ──────────────────────────────────
   async deleteField(fieldId) {
     const pool = await connectDB();
 
@@ -211,56 +244,42 @@ const scanService = {
     return { fieldId };
   },
 
+  // ── Traitement JSON Entreprise ──────────────────────────
+  async processerJSONEntreprise(userId, jsonData, filename = 'facture.json') {
+    const pool = await connectDB();
+    const ocrResult = ocrService.traiterJSONEntreprise(jsonData);
 
+    const scanInsert = await pool.request()
+      .input('user_id',      sql.Int,               userId)
+      .input('filename',     sql.NVarChar,          filename)
+      .input('status',       sql.NVarChar,          'pending')
+      .input('image_base64', sql.NVarChar(sql.MAX), '')
+      .query(`
+        INSERT INTO scans (user_id, filename, status, image_base64)
+        OUTPUT INSERTED.id
+        VALUES (@user_id, @filename, @status, @image_base64)
+      `);
 
+    const scanId = scanInsert.recordset[0].id;
 
-  // Permet de tester avec le JSON de l'API entreprise directement
-async processerJSONEntreprise(userId, jsonData, filename = 'facture.json') {
-  const pool = await connectDB();
+    const pool2 = await connectDB();
+    await pool2.request()
+      .input('id',       sql.Int,               scanId)
+      .input('raw_text', sql.NVarChar(sql.MAX), ocrResult.rawText)
+      .query(`UPDATE scans SET status = 'completed', raw_text = @raw_text WHERE id = @id`);
 
-  // Traite le JSON
-  const ocrResult = ocrService.traiterJSONEntreprise(jsonData);
+    for (const field of ocrResult.fields) {
+      const pool3 = await connectDB();
+      await pool3.request()
+        .input('scan_id',    sql.Int,     scanId)
+        .input('field_name', sql.NVarChar, field.name)
+        .input('field_value',sql.NVarChar, field.value || '')
+        .query(`INSERT INTO extracted_data (scan_id, field_name, field_value)
+                VALUES (@scan_id, @field_name, @field_value)`);
+    }
 
-  // Sauvegarde le document
-  const scanInsert = await pool.request()
-    .input('user_id',      sql.Int,               userId)
-    .input('filename',     sql.NVarChar,          filename)
-    .input('status',       sql.NVarChar,          'pending')
-    .input('image_base64', sql.NVarChar(sql.MAX), '')
-    .query(`
-      INSERT INTO scans (user_id, filename, status, image_base64)
-      OUTPUT INSERTED.id
-      VALUES (@user_id, @filename, @status, @image_base64)
-    `);
-
-  const scanId = scanInsert.recordset[0].id;
-
-  // Sauvegarde le texte brut
-  const pool2 = await connectDB();
-  await pool2.request()
-    .input('id',       sql.Int,               scanId)
-    .input('raw_text', sql.NVarChar(sql.MAX), ocrResult.rawText)
-    .query(`UPDATE scans SET status = 'completed', raw_text = @raw_text WHERE id = @id`);
-
-  // Sauvegarde les champs
-  for (const field of ocrResult.fields) {
-    const pool3 = await connectDB();
-    await pool3.request()
-      .input('scan_id',    sql.Int,     scanId)
-      .input('field_name', sql.NVarChar, field.name)
-      .input('field_value',sql.NVarChar, field.value || '')
-      .query(`INSERT INTO extracted_data (scan_id, field_name, field_value)
-              VALUES (@scan_id, @field_name, @field_value)`);
+    return { scanId, status: 'completed', rawText: ocrResult.rawText, fields: ocrResult.fields };
   }
-
-  return { scanId, status: 'completed', rawText: ocrResult.rawText, fields: ocrResult.fields };
-},
-
-
-
-
-
-
 };
 
 module.exports = scanService;

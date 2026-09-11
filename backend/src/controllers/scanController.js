@@ -37,7 +37,6 @@ const scanController = {
     }
   },
 
-  // ✅ Modifier un scan
   async updateScan(req, res, next) {
     try {
       const scanId  = parseInt(req.params.id);
@@ -51,7 +50,6 @@ const scanController = {
     }
   },
 
-  // ✅ Supprimer un scan
   async deleteScan(req, res, next) {
     try {
       const scanId  = parseInt(req.params.id);
@@ -75,7 +73,6 @@ const scanController = {
     }
   },
 
-  // ✅ Supprimer un champ extrait
   async deleteField(req, res, next) {
     try {
       const fieldId = parseInt(req.params.fieldId);
@@ -85,6 +82,23 @@ const scanController = {
       next(err);
     }
   },
+
+  // ✅ Cette méthode est maintenant correctement intégrée à l'objet exporté
+  async validateAllFields(req, res, next) {
+    try {
+      const scanId = req.params.id;
+      const { fields } = req.body;
+
+      if (!fields) {
+        return res.status(400).json({ success: false, message: 'Aucune donnée fournie' });
+      }
+
+      await scanService.saveAllFields(scanId, fields);
+      return success(res, null, 'Tous les champs ont été sauvegardés avec succès');
+    } catch (err) {
+      next(err);
+    }
+  }
 };
 
 module.exports = scanController;

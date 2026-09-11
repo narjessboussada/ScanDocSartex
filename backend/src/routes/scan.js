@@ -38,5 +38,5 @@ router.put('/:id',                verifyToken, scanValidator.validateUpdateScan,
 router.delete('/:id',             verifyToken, scanController.deleteScan);
 router.patch('/fields/:fieldId',  verifyToken, scanValidator.validateField,       scanController.validateField);
 router.delete('/fields/:fieldId', verifyToken, scanController.deleteField);
-
+router.post('/:id/validate-all', verifyToken, scanController.validateAllFields);
 module.exports = router;

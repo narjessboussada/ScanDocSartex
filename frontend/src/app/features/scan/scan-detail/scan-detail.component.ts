@@ -2,7 +2,6 @@ import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ValidatedCountPipe } from '../../../shared/pipes/validated-count.pipe';
 import * as XLSX from 'xlsx';
 
 import { MatCardModule } from '@angular/material/card';
@@ -28,7 +27,6 @@ import { ScanService, Field, Scan, Qualite } from '../../../core/services/scan.s
     MatProgressSpinnerModule, MatTableModule, MatInputModule,
     MatFormFieldModule, MatTooltipModule, MatDividerModule,
     MatSnackBarModule,
-    ValidatedCountPipe,
   ],
   templateUrl: './scan-detail.component.html',
   styleUrls: ['./scan-detail.component.css'],
