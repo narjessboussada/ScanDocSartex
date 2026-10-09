@@ -1,5 +1,6 @@
 const Tesseract = require('tesseract.js');
-const sharp     = require('sharp');
+const sharp = require('sharp');
+const axios = require('axios');
 
 const ocrService = {
 
@@ -7,10 +8,10 @@ const ocrService = {
     try {
       console.log('[OCR] Démarrage analyse...');
 
-      const base64Data  = imageBase64.split(',')[1];
+      const base64Data = imageBase64.split(',')[1];
       const imageBuffer = Buffer.from(base64Data, 'base64');
 
-      // Prétraitement Sharp
+      // 1. Prétraitement Sharp
       const imageTraitee = await sharp(imageBuffer)
         .resize({ width: 2400, withoutEnlargement: false })
         .greyscale()
@@ -19,9 +20,9 @@ const ocrService = {
         .png()
         .toBuffer();
 
-      const base64Traite = 'data:image/png;base64,'
-        + imageTraitee.toString('base64');
+      const base64Traite = 'data:image/png;base64,' + imageTraitee.toString('base64');
 
+      // 2. OCR avec Tesseract
       const result = await Tesseract.recognize(base64Traite, 'fra+eng', {
         logger: (m) => {
           if (m.status === 'recognizing text') {
@@ -30,255 +31,153 @@ const ocrService = {
         },
       });
 
-      const rawText   = result.data.text.trim();
+      const rawText = result.data.text.trim();
       const confiance = Math.round(result.data.confidence);
-      const qualite   = evaluerQualite(rawText, confiance);
+      const qualite = evaluerQualite(rawText, confiance);
 
-      // Convertit le texte brut en format JSON structuré
-      const structured = convertirEnJSON(rawText);
-      const fields     = jsonVersFields(structured);
+      console.log('[IA] Envoi du texte brut à n8n pour structuration...');
+
+      // 3. Appel à l'IA via n8n
+      let structured = await appelerWorkflowN8N(rawText);
+
+      // 4. Fallback sécurisé si l'IA échoue
+      if (!structured) {
+        console.warn('[IA] ⚠️ Fallback : IA indisponible, utilisation du texte brut');
+        structured = { rawText };
+      }
+
+      // 5. Conversion en champs plats
+      const fields = jsonVersFields(structured);
 
       return { rawText, fields, qualite, structured };
 
     } catch (err) {
-      console.error('[OCR] Erreur :', err.message);
+      console.error('[OCR] Erreur critique :', err.message);
       const error = new Error('Impossible de lire le document');
       error.statusCode = 422;
       throw error;
     }
-  },
-
-  /**
-   * TODO Phase 2 — Remplace analyze() par cet appel API entreprise
-   * quand l'API sera disponible
-   *
-   * async analyzeWithAPI(imageBase64) {
-   *   const response = await axios.post(process.env.API_ENTREPRISE_URL, {
-   *     image: imageBase64
-   *   }, {
-   *     headers: { 'Authorization': `Bearer ${process.env.API_ENTREPRISE_KEY}` }
-   *   });
-   *   const json = response.data; // format identique à celui ci-dessous
-   *   return traiterJSONEntreprise(json);
-   * }
-   */
-
-  /**
-   * Traite le JSON retourné par l'API de l'entreprise
-   * Peut être appelé directement quand l'API sera disponible
-   */
-  traiterJSONEntreprise(json) {
-    return traiterJSONEntreprise(json);
   }
 };
 
-// ── Traitement du JSON structuré de l'API entreprise ──────────────────────
+// ── FONCTION D'APPEL À N8N ──────────────────────────────────────────────────
 
-function traiterJSONEntreprise(json) {
-  const facture = json.facture || json;
-  const rawText = genererTexteDepuisJSON(facture);
-  const fields  = jsonVersFields(facture);
-  const qualite = { niveau: 'bon', score: 100, message: 'Extraction API réussie', conseil: null };
+async function appelerWorkflowN8N(texteBrut) {
+  try {
+    const n8nWebhookUrl = 'http://localhost:5678/webhook/a7a2ad8b-3746-4de8-960e-37fbe4a364c6';
+    
+    console.log('[IA]  Envoi en cours... (cela peut prendre 2-3 minutes)');
+    console.log('[IA] 📏 Taille du texte OCR:', texteBrut.length, 'caractères');
 
-  return { rawText, fields, qualite, structured: facture };
+    const response = await axios.post(n8nWebhookUrl, {
+      texte_ocr: texteBrut
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 300000 // 5 minutes
+    });
+
+    // Log la réponse BRUTE (type et contenu)
+    console.log('[IA] 🔍 Type de réponse:', typeof response.data);
+    console.log('[IA] 🔍 Réponse BRUTE:', JSON.stringify(response.data));
+    console.log('[IA] 🔍 Longueur:', response.data ? response.data.length : 0);
+
+    // Si la réponse est une chaîne vide
+    if (!response.data || response.data === '' || response.data === '""') {
+      console.error('[IA] ❌ n8n a renvoyé une chaîne vide');
+      return null;
+    }
+
+    // Si c'est une chaîne, essayer de la parser
+    let resultat;
+    if (typeof response.data === 'string') {
+      try {
+        resultat = JSON.parse(response.data);
+      } catch (e) {
+        console.error('[IA] ❌ La réponse est une chaîne mais pas du JSON valide');
+        console.error('[IA] Contenu:', response.data.substring(0, 500));
+        return null;
+      }
+    } else {
+      resultat = response.data;
+    }
+
+    if (resultat && resultat.success === true) {
+      console.log('[IA] ✅ Extraction réussie par Ollama !');
+      return resultat.data;
+    }
+
+    console.error('[IA] ❌ La réponse ne contient pas success:true');
+    console.error('[IA] Contenu:', JSON.stringify(resultat).substring(0, 500));
+    return null;
+
+  } catch (error) {
+    console.error('[IA] ❌ Erreur de connexion à n8n:', error.message);
+    if (error.response) {
+      console.error('[IA] Status:', error.response.status);
+      console.error('[IA] Data:', error.response.data);
+    }
+    return null;
+  }
 }
 
-/**
- * Convertit un JSON de facture en tableau de champs plats
- * Compatible avec la table extracted_data (field_name, field_value)
- */
+// ── Conversion JSON en champs plats ────────────────────────────────────────
+
 function jsonVersFields(json) {
   const fields = [];
 
-  if (!json || !json.facture) return flattenSimple(json, fields);
+  if (!json) return fields;
 
-  const f = json.facture || json;
+  // Adapter aux noms de champs que l'IA génère
+  if (json.Facture_numero) fields.push({ name: 'numero_facture', value: String(json.Facture_numero) });
+  if (json.Date) fields.push({ name: 'date_emission', value: String(json.Date) });
+  if (json.Fournisseur) fields.push({ name: 'fournisseur_nom', value: String(json.Fournisseur) });
+  if (json.Client) fields.push({ name: 'client_nom', value: String(json.Client) });
+  if (json.Montant_HT) fields.push({ name: 'totaux_total_ht', value: String(json.Montant_HT) });
+  if (json.TVA_taxe) fields.push({ name: 'totaux_total_tva', value: String(json.TVA_taxe) });
+  if (json.Total_TTC) fields.push({ name: 'totaux_total_ttc', value: String(json.Total_TTC) });
 
-  // ─── Infos générales ───────────────────────────────────
-  if (f.numero_facture)  fields.push({ name: 'numero_facture',  value: f.numero_facture });
-  if (f.date_emission)   fields.push({ name: 'date_emission',   value: f.date_emission });
-  if (f.date_echeance)   fields.push({ name: 'date_echeance',   value: f.date_echeance });
-  if (f.devise)          fields.push({ name: 'devise',          value: f.devise });
-  if (f.mode_paiement)   fields.push({ name: 'mode_paiement',   value: f.mode_paiement });
-
-  // ─── Fournisseur ───────────────────────────────────────
-  if (f.fournisseur) {
-    const fo = f.fournisseur;
-    if (fo.nom)               fields.push({ name: 'fournisseur_nom',     value: fo.nom });
-    if (fo.adresse)           fields.push({ name: 'fournisseur_adresse', value: fo.adresse });
-    if (fo.identifiant_fiscal)fields.push({ name: 'fournisseur_mf',      value: fo.identifiant_fiscal });
-    if (fo.telephone)         fields.push({ name: 'fournisseur_tel',     value: fo.telephone });
-    if (fo.email)             fields.push({ name: 'fournisseur_email',   value: fo.email });
+  // Noms alternatifs si l'IA utilise notre format standard
+  if (json.numero_facture) fields.push({ name: 'numero_facture', value: String(json.numero_facture) });
+  if (json.date_emission) fields.push({ name: 'date_emission', value: String(json.date_emission) });
+  if (json.fournisseur && json.fournisseur.nom) fields.push({ name: 'fournisseur_nom', value: String(json.fournisseur.nom) });
+  if (json.client && json.client.nom) fields.push({ name: 'client_nom', value: String(json.client.nom) });
+  if (json.totaux) {
+    if (json.totaux.total_ht) fields.push({ name: 'totaux_total_ht', value: String(json.totaux.total_ht) });
+    if (json.totaux.total_tva) fields.push({ name: 'totaux_total_tva', value: String(json.totaux.total_tva) });
+    if (json.totaux.total_ttc) fields.push({ name: 'totaux_total_ttc', value: String(json.totaux.total_ttc) });
   }
 
-  // ─── Client ────────────────────────────────────────────
-  if (f.client) {
-    const cl = f.client;
-    if (cl.nom)               fields.push({ name: 'client_nom',     value: cl.nom });
-    if (cl.adresse)           fields.push({ name: 'client_adresse', value: cl.adresse });
-    if (cl.identifiant_fiscal)fields.push({ name: 'client_mf',      value: cl.identifiant_fiscal });
-  }
-
-  // ─── Lignes / Articles ─────────────────────────────────
-  if (f.lignes && Array.isArray(f.lignes)) {
-    f.lignes.forEach((ligne, i) => {
-      const n = i + 1;
-      if (ligne.description)  fields.push({ name: `lignes_${n}_description`,  value: String(ligne.description) });
-      if (ligne.quantite)     fields.push({ name: `lignes_${n}_quantite`,      value: String(ligne.quantite) });
-      if (ligne.prix_unitaire)fields.push({ name: `lignes_${n}_prix_unitaire`, value: String(ligne.prix_unitaire) });
-      if (ligne.montant_ht)   fields.push({ name: `lignes_${n}_montant_ht`,    value: String(ligne.montant_ht) });
-      if (ligne.tva)          fields.push({ name: `lignes_${n}_tva`,           value: String(ligne.tva) });
-    });
-  }
-
-// ─── Totaux ────────────────────────────────────────────
-if (f.totaux) {
-  const t = f.totaux;
-  if (t.total_ht  != null) fields.push({ name: 'totaux_total_ht',  value: String(t.total_ht) });
-  if (t.total_tva != null) fields.push({ name: 'totaux_total_tva', value: String(t.total_tva) });
-  if (t.total_ttc != null) fields.push({ name: 'totaux_total_ttc', value: String(t.total_ttc) });
-  if (t.remise)            fields.push({ name: 'totaux_remise',     value: String(t.remise) });
-  if (t.timbre_fiscal)     fields.push({ name: 'totaux_timbre',     value: String(t.timbre_fiscal) });
-}
   return fields;
-}
-
-// Flatten simple pour les JSON sans structure facture
-function flattenSimple(obj, fields = [], prefix = '') {
-  for (const [key, value] of Object.entries(obj || {})) {
-    if (value === null || value === undefined) continue;
-    const name = prefix ? `${prefix}_${key}` : key;
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      flattenSimple(value, fields, name);
-    } else if (Array.isArray(value)) {
-      value.forEach((v, i) => {
-        if (typeof v === 'object') flattenSimple(v, fields, `${name}_${i + 1}`);
-        else fields.push({ name: `${name}_${i + 1}`, value: String(v) });
-      });
-    } else {
-      fields.push({ name, value: String(value) });
-    }
-  }
-  return fields;
-}
-
-// Génère un texte brut lisible depuis le JSON
-function genererTexteDepuisJSON(facture) {
-  const f = facture.facture || facture;
-  const lines = [];
-
-  lines.push(`Facture N° : ${f.numero_facture || '—'}`);
-  lines.push(`Date d'émission : ${f.date_emission || '—'}`);
-  if (f.date_echeance) lines.push(`Date d'échéance : ${f.date_echeance}`);
-  lines.push('');
-
-  if (f.fournisseur) {
-    lines.push(`Fournisseur : ${f.fournisseur.nom || '—'}`);
-    if (f.fournisseur.adresse)            lines.push(`Adresse : ${f.fournisseur.adresse}`);
-    if (f.fournisseur.identifiant_fiscal) lines.push(`MF : ${f.fournisseur.identifiant_fiscal}`);
-    if (f.fournisseur.telephone)          lines.push(`Tél : ${f.fournisseur.telephone}`);
-    if (f.fournisseur.email)              lines.push(`Email : ${f.fournisseur.email}`);
-  }
-  lines.push('');
-
-  if (f.client) {
-    lines.push(`Client : ${f.client.nom || '—'}`);
-    if (f.client.adresse) lines.push(`Adresse : ${f.client.adresse}`);
-  }
-  lines.push('');
-
-  if (f.lignes) {
-    lines.push('Articles :');
-    f.lignes.forEach((l, i) => {
-      lines.push(`  ${i + 1}. ${l.description}`);
-      lines.push(`     Qté: ${l.quantite} | PU: ${l.prix_unitaire} | HT: ${l.montant_ht}`);
-    });
-  }
-  lines.push('');
-
-  if (f.totaux) {
-    lines.push(`Total HT  : ${f.totaux.total_ht}`);
-    lines.push(`Total TVA : ${f.totaux.total_tva}`);
-    lines.push(`Total TTC : ${f.totaux.total_ttc}`);
-  }
-
-  if (f.mode_paiement) lines.push(`Mode de paiement : ${f.mode_paiement}`);
-
-  return lines.join('\n');
 }
 
 // ── Évaluation qualité OCR ─────────────────────────────────────────────────
 
 function evaluerQualite(text, confiance) {
   if (!text || text.length < 20 || confiance < 30) {
-    return { niveau: 'mauvais', score: confiance || 0,
-      message: 'Document illisible — écriture manuscrite ou image floue',
-      conseil: 'Utilisez un document imprimé bien éclairé' };
+    return {
+      niveau: 'mauvais', score: confiance || 0,
+      message: 'Document illisible',
+      conseil: 'Utilisez un document imprimé bien éclairé'
+    };
   }
   if (confiance < 55) {
-    return { niveau: 'faible', score: confiance,
-      message: 'Qualité faible — vérifiez les champs extraits',
-      conseil: 'Recadrez et éclairez mieux le document' };
+    return {
+      niveau: 'faible', score: confiance,
+      message: 'Qualité faible',
+      conseil: 'Recadrez et éclairez mieux le document'
+    };
   }
   if (confiance < 75) {
-    return { niveau: 'moyen', score: confiance,
+    return {
+      niveau: 'moyen', score: confiance,
       message: 'Qualité acceptable',
-      conseil: 'Vérifiez les montants et les dates' };
+      conseil: 'Vérifiez les montants et les dates'
+    };
   }
-  return { niveau: 'bon', score: confiance,
-    message: 'Bonne qualité d\'extraction', conseil: null };
-}
-
-// ── Conversion texte brut → JSON (Tesseract fallback) ──────────────────────
-
-function convertirEnJSON(rawText) {
-  return { rawText };
-}
-
-// ── Extraction des champs depuis le texte brut ─────────────────────────────
-
-function extractFields(text) {
-  const fields = [];
-  const lines  = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
-
-  const patterns = [
-    { name: 'numero_facture',  regex: /(?:facture\s*n[o°]?\.?\s*:?\s*|invoice\s*#?\s*:?\s*)([A-Z0-9\-\/]+)/i },
-    { name: 'date_emission',   regex: /(?:date\s*(?:d.émission|de\s*facturation|facture)?\s*:?\s*)(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i },
-    { name: 'date_echeance',   regex: /(?:échéance|echeance|due\s*date)\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i },
-    { name: 'fournisseur_nom', regex: /(?:fournisseur|émetteur|de\s*:)\s*:?\s*(.{3,50})/i },
-    { name: 'client_nom',      regex: /(?:client|destinataire|à\s*:)\s*:?\s*(.{3,50})/i },
-    { name: 'total_ht',        regex: /(?:total\s*h\.?t\.?)\s*:?\s*([\d\s]+[,\.]\d{2,3})/i },
-    { name: 'total_tva',       regex: /(?:tva|t\.v\.a)\s*(?:\(?\d+%?\)?)?\s*:?\s*([\d\s]+[,\.]\d{2,3})/i },
-    { name: 'total_ttc',       regex: /(?:total\s*t\.?t\.?c\.?|net\s*à\s*payer)\s*:?\s*([\d\s]+[,\.]\d{2,3})/i },
-    { name: 'devise',          regex: /(?:devise|currency|en)\s*:?\s*(EUR|TND|DT|USD)/i },
-    { name: 'mode_paiement',   regex: /(?:mode\s*(?:de\s*)?paiement|payment\s*terms?)\s*:?\s*(.{3,50})/i },
-    { name: 'fournisseur_email', regex: /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/ },
-    { name: 'fournisseur_tel', regex: /(?:tél?\.?\s*:?\s*)(\+?[\d\s\-\.]{8,})/ },
-    { name: 'fournisseur_mf',  regex: /(?:matricule|MF|fiscal)\s*:?\s*([A-Z0-9\/]{5,})/ },
-  ];
-
-  for (const p of patterns) {
-    const match = text.match(p.regex);
-    if (match && match[1]) {
-      fields.push({ name: p.name, value: match[1].trim() });
-    }
-  }
-
-  // Lignes clé : valeur
-  const existing = fields.map(f => f.name);
-  for (const line of lines) {
-    if (!line.includes(':') || line.length > 150) continue;
-    const idx   = line.indexOf(':');
-    const key   = line.substring(0, idx).trim();
-    const value = line.substring(idx + 1).trim();
-    const name  = key.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
-    if (key.length > 1 && value.length > 0 && !existing.includes(name)) {
-      fields.push({ name, value });
-      existing.push(name);
-    }
-  }
-
-  return fields;
+  return {
+    niveau: 'bon', score: confiance,
+    message: 'Bonne qualité d\'extraction', conseil: null
+  };
 }
 
 module.exports = ocrService;

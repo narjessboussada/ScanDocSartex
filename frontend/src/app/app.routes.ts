@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { ScanUploadComponent } from './features/scan/scan-upload/scan-upload.component';
+import { ScanListComponent } from './features/scan/scan-list/scan-list.component';
 
 export const routes: Routes = [
   // Redirige / vers /login
@@ -21,6 +23,10 @@ export const routes: Routes = [
       import('./features/scan/scan-list/scan-list.component')
         .then(m => m.ScanListComponent),
   },
+
+   { path: '', redirectTo: '/scans/upload', pathMatch: 'full' },
+  { path: 'scans/upload', component: ScanUploadComponent },
+  { path: 'scans', component: ScanListComponent },
 
   // Page détail d'un scan — :id = paramètre dynamique (ex: /scans/42)
   {

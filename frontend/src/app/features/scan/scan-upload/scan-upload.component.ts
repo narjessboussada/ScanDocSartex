@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -108,7 +109,7 @@ scanService = inject(ScanService);
         const scanId = res.data.scanId;
         this.router.navigate(['/scans', scanId]);
       },
-      error: (err) => {
+      error: (err: HttpErrorResponse) => {
         this.errorMessage = err.error?.message || 'Échec du scan. Veuillez réessayer.';
         this.isLoading = false;
       },
