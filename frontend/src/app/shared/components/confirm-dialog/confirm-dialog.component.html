@@ -1,12 +1,19 @@
-<h2 mat-dialog-title>{{ data.title }}</h2>
-<mat-dialog-content>
-  <p>{{ data.message }}</p>
-</mat-dialog-content>
-<mat-dialog-actions align="end">
-  <button mat-button *ngIf="data.showCancel !== false" (click)="cancel()">
-    {{ data.cancelText || 'Annuler' }}
-  </button>
-  <button mat-raised-button color="primary" (click)="confirm()">
-    {{ data.confirmText || 'OK' }}
-  </button>
-</mat-dialog-actions>
+<div class="overlay" *ngIf="open" (click)="onBackdrop()">
+  <div #dialog class="dialog" role="alertdialog" aria-modal="true"
+       aria-labelledby="dlg-title" aria-describedby="dlg-desc"
+       (click)="$event.stopPropagation()" (keydown)="trap($event)">
+
+    <div class="ico" [class.danger]="tone === 'danger'"><mat-icon>{{ icon }}</mat-icon></div>
+
+    <h2 id="dlg-title">{{ title }}</h2>
+    <p id="dlg-desc" class="msg">{{ message }}</p>
+    <p class="detail" *ngIf="detail" [title]="detail">{{ detail }}</p>
+
+    <div class="actions">
+      <button #cancelBtn type="button" class="btn quiet" (click)="cancelled.emit()" [disabled]="busy">{{ cancelLabel }}</button>
+      <button type="button" class="btn" [class.danger]="tone === 'danger'" (click)="confirmed.emit()" [disabled]="busy">
+        {{ busy ? 'Veuillez patienter…' : confirmLabel }}
+      </button>
+    </div>
+  </div>
+</div>

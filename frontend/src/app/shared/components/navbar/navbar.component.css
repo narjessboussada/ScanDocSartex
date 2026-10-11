@@ -1,94 +1,57 @@
-mat-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
-  min-height: 72px;
-  background: #1e3a8a;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
-  color: white;
-}
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  text-decoration: none;
-  color: white;
-  font-size: 1.2rem;
-  font-weight: 800;
-}
+:host { display: block; position: sticky; top: 0; height: 100vh; flex: none; }
 
-.brand mat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.12);
-  color: #bfdbfe;
-  font-size: 24px;
+.sb {
+  --amber: #e0902f;
+  display: flex; flex-direction: column; width: 264px; height: 100%;
+  padding: 18px 14px 14px; background: #101b32; color: #cbd5e6;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  transition: width .2s ease;
 }
+.sb.collapsed { width: 76px; padding-inline: 12px; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+mat-icon { font-size: 22px; width: 22px; height: 22px; flex: none; }
 
-/* Pousse tout ce qui suit vers la droite */
-.spacer { flex: 1; }
+/* Marque */
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 4px 16px; min-height: 56px; }
+.logo { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; flex: none;
+  background: #2d4a7c; color: var(--amber); }
+.brand-text { display: grid; line-height: 1.2; min-width: 0; margin-right: auto; }
+.brand-text strong { font: 700 16px 'Sora', sans-serif; color: #fff; }
+.brand-text span { font-size: 12.5px; color: #8fa3c4; }
+.toggle { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid rgba(255,255,255,.14);
+  border-radius: 8px; background: transparent; color: #8fa3c4; cursor: pointer; }
+.toggle:hover { color: #fff; background: rgba(255,255,255,.08); }
+.collapsed .brand { flex-direction: column; gap: 10px; padding-bottom: 14px; }
+.collapsed .toggle { order: 3; }
 
-nav {
-  display: flex;
-  gap: 10px;
-}
+/* Surpiqûre */
+.stitch { height: 2px; margin: 0 4px; background: repeating-linear-gradient(90deg, var(--amber) 0 8px, transparent 8px 13px); opacity: .85; }
 
-nav a {
-  color: rgba(255,255,255,0.88) !important;
-  opacity: 0.95;
-  border-radius: 12px;
-  padding: 10px 14px;
-  transition: background 0.2s, color 0.2s;
-}
+/* Navigation */
+.nav { display: grid; gap: 4px; margin-top: 20px; align-content: start; flex: 1; }
+.group { margin: 0 12px 8px; font-size: 12.5px; color: #6f84a8; }
+.item { position: relative; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px;
+  border-radius: 10px; color: #b4c1d9; font-size: 14.5px; font-weight: 500; text-decoration: none; }
+.item mat-icon { color: #8fa3c4; }
+.item:hover { background: rgba(255,255,255,.06); color: #fff; }
+.item.active { background: rgba(255,255,255,.1); color: #fff; }
+.item.active mat-icon { color: var(--amber); }
+.item.active::before { content: ''; position: absolute; left: -14px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--amber); }
+.collapsed .item { justify-content: center; padding: 0; }
+.collapsed .item.active::before { left: -12px; }
 
-nav a:hover,
-nav a.active-link {
-  opacity: 1;
-  background: rgba(255,255,255,0.16);
-  color: #ffffff !important;
-}
+/* Utilisateur */
+.user { display: flex; align-items: center; gap: 11px; padding: 12px 8px; margin-top: 12px; border-top: 1px solid rgba(255,255,255,.1); }
+.avatar { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; flex: none;
+  background: #2d4a7c; color: #fff; font: 600 13.5px 'Sora', sans-serif; }
+.who { display: grid; line-height: 1.3; min-width: 0; margin-right: auto; }
+.who strong { color: #fff; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who span { font-size: 12.5px; color: #8fa3c4; }
+.out { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 9px; background: transparent; color: #8fa3c4; cursor: pointer; }
+.out:hover { background: rgba(196,60,47,.18); color: #ff8f84; }
+.collapsed .user { flex-direction: column; padding-inline: 0; }
 
-.menu-header {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 20px;
-  gap: 4px;
-  min-width: 260px;
-}
-
-mat-menu {
-  min-width: 260px;
-}
-
-.menu-header small {
-  color: #9ca3af;
-  font-size: 0.85rem;
-}
-
-.menu-header strong {
-  color: #111827;
-  font-size: 0.98rem;
-}
-
-.role-badge {
-  display: inline-block;
-  background: #e3f2fd;
-  color: #1565c0;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-top: 4px;
-  width: fit-content;
-}
+@media (max-width: 900px) { .sb { width: 76px; padding-inline: 12px; } .brand-text, .who, .group, .item span { display: none; } .toggle { display: none; } .item { justify-content: center; padding: 0; } .user { flex-direction: column; } }
+@media (prefers-reduced-motion: reduce) { .sb { transition: none; } }

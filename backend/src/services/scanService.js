@@ -49,9 +49,9 @@ const scanService = {
     for (const field of ocrResult.fields) {
       const pool4 = await connectDB();
       await pool4.request()
-        .input('scan_id',     sql.Int,     scanId)
-        .input('field_name',  sql.NVarChar, field.name)
-        .input('field_value', sql.NVarChar, field.value)
+        .input('scan_id',     sql.Int,           scanId)
+        .input('field_name',  sql.NVarChar(100), field.name)
+        .input('field_value', sql.NVarChar(500), field.value)
         .query(`
           INSERT INTO extracted_data (scan_id, field_name, field_value)
           VALUES (@scan_id, @field_name, @field_value)
@@ -125,8 +125,15 @@ const scanService = {
     };
   },
 
-  // ── Mettre à jour les infos de base du scan ──────────────
+  // ── Mettre à jour les infos de base du scan (renommer, statut) ──
   async updateScan(scanId, userId, isAdmin, { filename, status }) {
+    // Validation du nouveau nom
+    if (filename !== undefined && filename !== null) {
+      filename = String(filename).trim();
+      if (!filename || filename.length > 255 || /[\\/:*?"<>|]/.test(filename))
+        throw createError('Nom de document invalide', 400);
+    }
+
     const pool = await connectDB();
 
     const scanResult = await pool.request()
@@ -141,9 +148,9 @@ const scanService = {
 
     const pool2 = await connectDB();
     const result = await pool2.request()
-      .input('id',       sql.Int,     scanId)
-      .input('filename', sql.NVarChar, filename || null)
-      .input('status',   sql.NVarChar, status   || null)
+      .input('id',       sql.Int,           scanId)
+      .input('filename', sql.NVarChar(255), filename || null)
+      .input('status',   sql.NVarChar(50),  status   || null)
       .query(`
         UPDATE scans
         SET
@@ -188,9 +195,9 @@ const scanService = {
     const pool = await connectDB();
 
     const result = await pool.request()
-      .input('id',              sql.Int,     fieldId)
-      .input('is_validated',    sql.Bit,     isValidated)
-      .input('corrected_value', sql.NVarChar, correctedValue || null)
+      .input('id',              sql.Int,           fieldId)
+      .input('is_validated',    sql.Bit,           isValidated)
+      .input('corrected_value', sql.NVarChar(500), correctedValue || null)
       .query(`
         UPDATE extracted_data
         SET is_validated    = @is_validated,
@@ -210,10 +217,10 @@ const scanService = {
     for (const [fieldId, value] of Object.entries(fieldUpdates)) {
       const pool = await connectDB();
       await pool.request()
-        .input('id',              sql.Int,     fieldId)
-        .input('scan_id',         sql.Int,     scanId)
-        .input('is_validated',    sql.Bit,     1)
-        .input('corrected_value', sql.NVarChar, value || null)
+        .input('id',              sql.Int,           fieldId)
+        .input('scan_id',         sql.Int,           scanId)
+        .input('is_validated',    sql.Bit,           1)
+        .input('corrected_value', sql.NVarChar(500), value || null)
         .query(`
           UPDATE extracted_data
           SET is_validated    = @is_validated,
@@ -271,9 +278,9 @@ const scanService = {
     for (const field of ocrResult.fields) {
       const pool3 = await connectDB();
       await pool3.request()
-        .input('scan_id',    sql.Int,     scanId)
-        .input('field_name', sql.NVarChar, field.name)
-        .input('field_value',sql.NVarChar, field.value || '')
+        .input('scan_id',     sql.Int,           scanId)
+        .input('field_name',  sql.NVarChar(100), field.name)
+        .input('field_value', sql.NVarChar(500), field.value || '')
         .query(`INSERT INTO extracted_data (scan_id, field_name, field_value)
                 VALUES (@scan_id, @field_name, @field_value)`);
     }

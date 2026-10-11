@@ -1,92 +1,93 @@
-<div class="upload-shell">
-  <div class="upload-header">
-    <div class="header-copy">
-      <div class="upload-title-icon">
-        <mat-icon>document_scanner</mat-icon>
-      </div>
-      <div>
-        <h1>Scanner un document</h1>
-        <p>Déposez votre fichier ou sélectionnez-le pour extraire les informations.</p>
-      </div>
+<header class="head">
+  <div class="head-main">
+    <div>
+      <p class="eyebrow">Numérisation</p>
+      <h1>Scanner un document</h1>
+      <p class="sub">Déposez un fichier pour extraire automatiquement ses informations.</p>
     </div>
-    <button mat-flat-button color="primary" [routerLink]="['/scans']">
-      <mat-icon>arrow_back</mat-icon>
-      Retour aux scans
-    </button>
+    <button type="button" class="btn quiet" (click)="back()" [disabled]="scanning"><mat-icon>arrow_back</mat-icon>Retour</button>
   </div>
+</header>
+<div class="stitch" aria-hidden="true"></div>
 
-  <mat-card class="upload-card">
-    <mat-card-content>
-      <div class="error-message" *ngIf="errorMessage">
-        <mat-icon>error_outline</mat-icon>
-        {{ errorMessage }}
+<main class="content">
+
+  <!-- Zone principale -->
+  <section class="card main">
+    <div class="card-head">
+      <h2>Document à analyser</h2>
+      <span class="step">Étape 1 sur 2</span>
+    </div>
+
+    <input #fileInput type="file" class="hidden" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" (change)="onInput($event)" />
+
+    <div class="error" *ngIf="errorMessage" role="alert"><mat-icon>error_outline</mat-icon><span>{{ errorMessage }}</span></div>
+
+    <!-- 1. Aucun fichier -->
+    <div *ngIf="!file" class="drop" [class.over]="dragging" role="button" tabindex="0"
+         aria-label="Déposer ou choisir un document"
+         (click)="browse()" (keyup.enter)="browse()" (keyup.space)="browse()"
+         (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
+      <div class="drop-ico"><mat-icon>cloud_upload</mat-icon></div>
+      <strong>{{ dragging ? 'Relâchez pour déposer' : 'Déposez votre document ici' }}</strong>
+      <span>ou cliquez pour parcourir vos fichiers</span>
+      <em>JPG · PNG · PDF — 5 Mo max</em>
+    </div>
+
+    <!-- 2. Fichier choisi -->
+    <div *ngIf="file" class="picked">
+      <div class="thumb">
+        <img *ngIf="previewUrl; else pdfIcon" [src]="previewUrl" alt="Aperçu du document" />
+        <ng-template #pdfIcon><mat-icon>picture_as_pdf</mat-icon></ng-template>
       </div>
 
-      <div class="upload-panel">
-        <div class="upload-drop-zone" *ngIf="!selectedFile"
-          (dragover)="onDragOver($event)"
-          (drop)="onDrop($event)"
-          (click)="fileInput.click()"
-        >
-          <mat-icon class="upload-zone-icon">cloud_upload</mat-icon>
-          <h2>Déposez votre document ici</h2>
-          <p>ou cliquez pour parcourir vos fichiers</p>
-          <span>JPG, PNG, PDF • Max 5Mo</span>
-          <input
-            #fileInput
-            type="file"
-            accept="image/*,application/pdf"
-            hidden
-            (change)="onFileSelected($event)"
-          />
+      <div class="info">
+        <label class="lbl" for="docname">Nom du document</label>
+        <div class="namebox">
+          <input id="docname" [(ngModel)]="baseName" maxlength="120" [disabled]="scanning" (keyup.enter)="scan()" />
+          <span>{{ ext }}</span>
         </div>
-
-        <div class="upload-preview" *ngIf="selectedFile">
-          <div class="preview-card" [ngClass]="{ 'pdf-preview': isPdfPreview }">
-            <ng-container *ngIf="previewUrl; else pdfPreview">
-              <img [src]="previewUrl" alt="Prévisualisation du document" class="preview-image" />
-            </ng-container>
-            <ng-template #pdfPreview>
-              <div class="pdf-placeholder">
-                <mat-icon>picture_as_pdf</mat-icon>
-                <span>Aperçu PDF</span>
-              </div>
-            </ng-template>
-          </div>
-
-          <div class="preview-details">
-            <div class="file-meta">
-              <h3>{{ selectedFile.name }}</h3>
-              <p>{{ isPdfPreview ? 'Document PDF' : 'Image sélectionnée' }}</p>
-            </div>
-            <button mat-stroked-button color="warn" (click)="resetSelection()">
-              <mat-icon>delete</mat-icon>
-              Changer
-            </button>
-          </div>
-        </div>
+        <p class="meta">{{ typeLabel }} · {{ formatSize(file.size) }}</p>
       </div>
 
-      <div class="upload-options" *ngIf="selectedFile">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Type de document</mat-label>
-          <mat-select [(ngModel)]="documentType">
-            <mat-option value="invoice">Facture</mat-option>
-            <mat-option value="contract">Contrat</mat-option>
-            <mat-option value="purchase_order">Bon de commande</mat-option>
-            <mat-option value="other">Autre</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
+      <button type="button" class="icon-btn" (click)="clear()" [disabled]="scanning" matTooltip="Retirer le fichier" aria-label="Retirer le fichier"><mat-icon>close</mat-icon></button>
+    </div>
 
-      <mat-progress-bar *ngIf="isLoading" mode="indeterminate" class="progress-bar"></mat-progress-bar>
-    </mat-card-content>
+    <!-- 3. Analyse en cours -->
+    <div *ngIf="scanning" class="progress" role="status" aria-live="polite">
+      <div class="progress-top"><strong>Analyse en cours…</strong><span>{{ clock }}</span></div>
+      <div class="track"><i></i></div>
+      <p>Lecture du texte puis extraction des données par l'IA. Cela peut prendre 2 à 3 minutes : ne fermez pas cette page.</p>
+    </div>
 
-    <mat-card-actions>
-      <button mat-raised-button color="primary" class="full-width" [disabled]="!selectedFile || isLoading" (click)="onSubmit()">
-        <mat-icon>{{ isLoading ? 'hourglass_empty' : 'document_scanner' }}</mat-icon>
-        {{ isLoading ? 'Analyse en cours...' : 'Scanner le document' }}
+    <footer class="actions">
+      <button type="button" class="btn quiet" *ngIf="file && !scanning" (click)="browse()"><mat-icon>swap_horiz</mat-icon>Changer de fichier</button>
+      <button type="button" class="btn primary" (click)="scan()" [disabled]="!file || scanning">
+        <mat-icon>document_scanner</mat-icon>{{ scanning ? 'Analyse…' : 'Scanner le document' }}
       </button>
-    </mat-card-actions>
-  </mat-card>
-</div>
+    </footer>
+  </section>
+
+  <!-- Aide -->
+  <aside class="rail">
+    <section class="card">
+      <h3>Comment ça marche</h3>
+      <ol class="steps">
+        <li><b>1</b><div><strong>Déposez</strong><span>Une facture en image ou en PDF.</span></div></li>
+        <li><b>2</b><div><strong>Analyse automatique</strong><span>Lecture OCR puis structuration par l'IA.</span></div></li>
+        <li><b>3</b><div><strong>Vérifiez</strong><span>Corrigez et validez chaque champ extrait.</span></div></li>
+        <li><b>4</b><div><strong>Exportez</strong><span>Téléchargez le résultat en Excel.</span></div></li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h3>Pour un meilleur résultat</h3>
+      <ul class="tips">
+        <li><mat-icon>check</mat-icon>Document bien éclairé, sans reflet</li>
+        <li><mat-icon>check</mat-icon>Image droite et nette, texte lisible</li>
+        <li><mat-icon>check</mat-icon>Cadrez la page entière, sans bords coupés</li>
+        <li><mat-icon>check</mat-icon>Privilégiez un scan à une photo</li>
+      </ul>
+    </section>
+  </aside>
+</main>

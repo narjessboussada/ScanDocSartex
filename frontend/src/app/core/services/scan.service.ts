@@ -64,6 +64,11 @@ processJSON(jsonData: any, filename: string = 'facture.json') {
     return this.http.get<any>(`${this.apiUrl}/${id}`);
   }
 
+  // Renomme un scan
+  renameScan(id: number, filename: string) {
+    return this.http.put<any>(`${this.apiUrl}/${id}`, { filename });
+  }
+
   // Valide ou corrige un champ extrait
   validateField(fieldId: number, isValidated: boolean, correctedValue?: string) {
     return this.http.patch<any>(`${this.apiUrl}/fields/${fieldId}`, {

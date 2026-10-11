@@ -1,5 +1,5 @@
-import { Component, inject, OnInit } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Component, ElementRef, HostListener, ViewChild, inject, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
@@ -22,7 +22,7 @@ import { ScanService, Field, Scan, Qualite } from '../../../core/services/scan.s
   selector: 'app-scan-detail',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterLink,
+    CommonModule, FormsModule,
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatTableModule, MatInputModule,
     MatFormFieldModule, MatTooltipModule, MatDividerModule,
@@ -49,7 +49,16 @@ export class ScanDetailComponent implements OnInit {
   editingValue   : string        = '';
   zoomLevel      : number        = 1;
 
-  
+  // ── Renommer le document ──
+  renaming = false;
+  newName  = '';
+  ext      = '';
+
+  // Donne le focus au champ dès qu'il apparaît
+  @ViewChild('nameInput') set nameInput(el: ElementRef<HTMLInputElement> | undefined) {
+    if (el) { el.nativeElement.focus(); el.nativeElement.select(); }
+  }
+
   get validationPercentage(): number {
     if (!this.fields.length) return 0;
     const validatedCount = this.fields.filter(field => field.is_validated).length;
@@ -80,6 +89,38 @@ export class ScanDetailComponent implements OnInit {
     });
   }
 
+  // ── Renommer ─────────────────────────────────────────────
+
+  startRename() {
+    if (!this.scan) return;
+    const n = this.scan.filename;
+    const i = n.lastIndexOf('.');
+    this.ext      = i > 0 ? n.slice(i) : '';      // l'extension (.png, .pdf) n'est pas modifiable
+    this.newName  = i > 0 ? n.slice(0, i) : n;
+    this.renaming = true;
+  }
+
+  saveRename() {
+    if (!this.scan) return;
+    const base = this.newName.trim().replace(/[\\/:*?"<>|]/g, '');   // retire les caractères interdits
+    if (!base) return;
+    const full = base + this.ext;
+    if (full === this.scan.filename) { this.renaming = false; return; }
+
+    this.scanService.renameScan(this.scan.id, full).subscribe({
+      next: () => {
+        this.scan!.filename = full;
+        this.renaming = false;
+        this.snackBar.open('Document renommé', 'Fermer', {
+          duration: 2000, horizontalPosition: 'center', verticalPosition: 'bottom',
+        });
+      },
+      error: (err) => { this.errorMessage = err.error?.message || 'Impossible de renommer le document'; },
+    });
+  }
+
+  cancelRename() { this.renaming = false; }
+
   // ── Édition ──────────────────────────────────────────────
 
   startEdit(field: Field) {
@@ -92,7 +133,7 @@ export class ScanDetailComponent implements OnInit {
       this.editingFieldId = null;
       return;
     }
-    
+
     this.scanService.validateField(field.id, true, this.editingValue).subscribe({
       next: () => {
         field.corrected_value = this.editingValue;
@@ -152,8 +193,6 @@ export class ScanDetailComponent implements OnInit {
     });
   }
 
-
-
   // ── Articles ─────────────────────────────────────────────
 
   updateArticles() {
@@ -194,13 +233,12 @@ export class ScanDetailComponent implements OnInit {
       'matricule_fiscale', 'taux_tva', 'numero_tva', 'registre_commerce',
     ];
 
- const totauxKeys = [
-  'totaux_total_ht', 'totaux_total_tva', 'totaux_total_ttc',
-  'totaux_remise', 'totaux_timbre',
-  'total_ht', 'total_tva', 'total_ttc', 'remise',
-  'timbre_fiscal', 'base_tva', 'tva_montant', 'tva', 'timbre',
-];
-    const prefix = this.fields.some(f => f.field_name.startsWith('lignes_')) ? 'lignes_' : 'article_';
+    const totauxKeys = [
+      'totaux_total_ht', 'totaux_total_tva', 'totaux_total_ttc',
+      'totaux_remise', 'totaux_timbre',
+      'total_ht', 'total_tva', 'total_ttc', 'remise',
+      'timbre_fiscal', 'base_tva', 'tva_montant', 'tva', 'timbre',
+    ];
 
     if (category === 'date') {
       return this.fields.filter(f => dateKeys.includes(f.field_name));
@@ -230,73 +268,66 @@ export class ScanDetailComponent implements OnInit {
 
   // ── Actions ──────────────────────────────────────────────
 
- downloadExcel() {
-  if (!this.scan) return;
+  downloadExcel() {
+    if (!this.scan) return;
 
-  const wb = XLSX.utils.book_new();
+    const wb = XLSX.utils.book_new();
 
-  // ── Feuille 1 : Informations générales ──
-  const infoData: any[][] = [
-    ['RAPPORT DE SCAN — ScanDoc'],
-    [],
-    ['Document', this.scan.filename],
-    ['Scan ID', this.scan.id],
-    ['Date scan', new Date(this.scan.createdAt).toLocaleDateString('fr-FR')],
-    ['Statut', this.scan.status],
-    [],
-  ];
-
-  // Ajoute tous les champs non-articles
-  const nonArticleFields = this.fields.filter(f =>
-    !f.field_name.startsWith('lignes_') && !f.field_name.startsWith('article_')
-  );
-
-  infoData.push(['Champ', 'Valeur', 'Validé']);
-  nonArticleFields.forEach(f => {
-    infoData.push([
-      this.formatFieldName(f.field_name),
-      f.corrected_value || f.field_value || '—',
-      f.is_validated ? '✓' : ''
-    ]);
-  });
-
-  const wsInfo = XLSX.utils.aoa_to_sheet(infoData);
-
-  // Style largeurs colonnes
-  wsInfo['!cols'] = [{ wch: 30 }, { wch: 50 }, { wch: 10 }];
-
-  XLSX.utils.book_append_sheet(wb, wsInfo, 'Informations');
-
-  // ── Feuille 2 : Articles ──
-  if (this.articles.length > 0) {
-    const articlesData: any[][] = [
-      ['#', 'Désignation', 'Quantité', 'Prix Unitaire', 'Total HT']
+    // ── Feuille 1 : Informations générales ──
+    const infoData: any[][] = [
+      ['RAPPORT DE SCAN — ScanDoc'],
+      [],
+      ['Document', this.scan.filename],
+      ['Scan ID', this.scan.id],
+      ['Date scan', new Date(this.scan.createdAt).toLocaleDateString('fr-FR')],
+      ['Statut', this.scan.status],
+      [],
     ];
 
-    this.articles.forEach(article => {
-      articlesData.push([
-        article.num,
-        article.desc?.corrected_value || article.desc?.field_value || '—',
-        article.qte?.corrected_value  || article.qte?.field_value  || '—',
-        article.pu?.corrected_value   || article.pu?.field_value   || '—',
-        article.total?.corrected_value|| article.total?.field_value|| '—',
+    const nonArticleFields = this.fields.filter(f =>
+      !f.field_name.startsWith('lignes_') && !f.field_name.startsWith('article_')
+    );
+
+    infoData.push(['Champ', 'Valeur', 'Validé']);
+    nonArticleFields.forEach(f => {
+      infoData.push([
+        this.formatFieldName(f.field_name),
+        f.corrected_value || f.field_value || '—',
+        f.is_validated ? '✓' : ''
       ]);
     });
 
-    const wsArticles = XLSX.utils.aoa_to_sheet(articlesData);
-    wsArticles['!cols'] = [
-      { wch: 5 }, { wch: 50 }, { wch: 12 }, { wch: 15 }, { wch: 15 }
-    ];
+    const wsInfo = XLSX.utils.aoa_to_sheet(infoData);
+    wsInfo['!cols'] = [{ wch: 30 }, { wch: 50 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsInfo, 'Informations');
 
-    XLSX.utils.book_append_sheet(wb, wsArticles, 'Articles');
+    // ── Feuille 2 : Articles ──
+    if (this.articles.length > 0) {
+      const articlesData: any[][] = [
+        ['#', 'Désignation', 'Quantité', 'Prix Unitaire', 'Total HT']
+      ];
+
+      this.articles.forEach(article => {
+        articlesData.push([
+          article.num,
+          article.desc?.corrected_value  || article.desc?.field_value  || '—',
+          article.qte?.corrected_value   || article.qte?.field_value   || '—',
+          article.pu?.corrected_value    || article.pu?.field_value    || '—',
+          article.total?.corrected_value || article.total?.field_value || '—',
+        ]);
+      });
+
+      const wsArticles = XLSX.utils.aoa_to_sheet(articlesData);
+      wsArticles['!cols'] = [{ wch: 5 }, { wch: 50 }, { wch: 12 }, { wch: 15 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, wsArticles, 'Articles');
+    }
+
+    // ── Téléchargement ──
+    const filename = `scan-${this.scan.id}-${this.scan.filename.replace(/\.[^.]+$/, '')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    this.snackBar.open('Fichier Excel exporté avec succès', 'Fermer', { duration: 3000, horizontalPosition: 'center', verticalPosition: 'bottom' });
   }
-
-  // ── Téléchargement ──
-  const filename = `scan-${this.scan.id}-${this.scan.filename.replace(/\.[^.]+$/, '')}.xlsx`;
-  XLSX.writeFile(wb, filename);
-  
-  this.snackBar.open('Fichier Excel exporté avec succès', 'Fermer', { duration: 3000, horizontalPosition: 'center', verticalPosition: 'bottom' });
-}
 
   sendEmail() {
     if (!this.scan) return;
@@ -348,13 +379,15 @@ export class ScanDetailComponent implements OnInit {
       'base_tva': 'Base TVA',
       'tva_montant': 'Montant TVA',
       'devise': 'Devise',
-      'telephone': 'Téléphone'
+      'telephone': 'Téléphone',
+      'mode_paiement': 'Mode de Paiement',
+      'mentions_legales': 'Mentions Légales',
     };
 
     if (customLabels[name]) {
       return customLabels[name];
     }
-    
+
     // Default fallback
     return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
@@ -375,5 +408,55 @@ export class ScanDetailComponent implements OnInit {
     return colors[status] || 'default';
   }
 
-  
+  // ── Affichage (utilisé par le template) ──────────────────
+
+  getField(name: string): Field | null {
+    return this.fields.find(f => f.field_name === name) || null;
+  }
+
+  fieldsByPrefix(prefix: string): Field[] {
+    return this.fields.filter(f => f.field_name.startsWith(prefix));
+  }
+
+  /** Valeur affichée : corrigée > extraite, montants au format français (7 801,45) */
+  display(f: Field | null): string {
+    if (!f) return '';
+    const v = f.corrected_value || f.field_value || '';
+    const isAmount = /^(totaux_|base_tva|timbre_fiscal)/.test(f.field_name) ||
+                     /_(prix_unitaire|montant_ht)$/.test(f.field_name);
+    if (isAmount && v !== '' && !isNaN(Number(v))) {
+      return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+    }
+    return v;
+  }
+
+  // ── Contrôle global & impression ─────────────────────────
+
+  /** Compte les champs par état : validés, rejetés ou à vérifier */
+  countBy(kind: 'ok' | 'ko' | 'todo'): number {
+    return this.fields.filter(f =>
+      kind === 'ok' ? f.is_validated : kind === 'ko' ? f.is_rejected : (!f.is_validated && !f.is_rejected)
+    ).length;
+  }
+
+  /** Valide d'un coup tous les champs encore à vérifier */
+  validateAll() {
+    this.fields
+      .filter(f => !f.is_validated && !f.is_rejected)
+      .forEach(f => this.validateSingleField(f, true));
+  }
+
+  print() { window.print(); }
+
+  // ── Document en grand ────────────────────────────────────
+
+  lightbox = false;
+  lbZoom   = false;
+
+  openLightbox()  { if (this.imageBase64) { this.lightbox = true; this.lbZoom = false; } }
+  closeLightbox() { this.lightbox = false; }
+  toggleLbZoom()  { this.lbZoom = !this.lbZoom; }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.lightbox) this.closeLightbox(); }
 }

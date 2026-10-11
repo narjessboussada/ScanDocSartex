@@ -124,32 +124,54 @@ async function appelerWorkflowN8N(texteBrut) {
 
 function jsonVersFields(json) {
   const fields = [];
-
   if (!json) return fields;
 
-  // Adapter aux noms de champs que l'IA génère
-  if (json.Facture_numero) fields.push({ name: 'numero_facture', value: String(json.Facture_numero) });
-  if (json.Date) fields.push({ name: 'date_emission', value: String(json.Date) });
-  if (json.Fournisseur) fields.push({ name: 'fournisseur_nom', value: String(json.Fournisseur) });
-  if (json.Client) fields.push({ name: 'client_nom', value: String(json.Client) });
-  if (json.Montant_HT) fields.push({ name: 'totaux_total_ht', value: String(json.Montant_HT) });
-  if (json.TVA_taxe) fields.push({ name: 'totaux_total_tva', value: String(json.TVA_taxe) });
-  if (json.Total_TTC) fields.push({ name: 'totaux_total_ttc', value: String(json.Total_TTC) });
+  // Le workflow n8n renvoie { facture: {...} }
+  const f = json.facture || json;
 
-  // Noms alternatifs si l'IA utilise notre format standard
-  if (json.numero_facture) fields.push({ name: 'numero_facture', value: String(json.numero_facture) });
-  if (json.date_emission) fields.push({ name: 'date_emission', value: String(json.date_emission) });
-  if (json.fournisseur && json.fournisseur.nom) fields.push({ name: 'fournisseur_nom', value: String(json.fournisseur.nom) });
-  if (json.client && json.client.nom) fields.push({ name: 'client_nom', value: String(json.client.nom) });
-  if (json.totaux) {
-    if (json.totaux.total_ht) fields.push({ name: 'totaux_total_ht', value: String(json.totaux.total_ht) });
-    if (json.totaux.total_tva) fields.push({ name: 'totaux_total_tva', value: String(json.totaux.total_tva) });
-    if (json.totaux.total_ttc) fields.push({ name: 'totaux_total_ttc', value: String(json.totaux.total_ttc) });
-  }
+  const add = (name, value) => {
+    if (value === null || value === undefined || value === '') return;
+    fields.push({ name, value: String(value).slice(0, 500) });
+  };
 
+  add('numero_facture', f.numero_facture);
+  add('date_emission', f.date_emission);
+  add('date_echeance', f.date_echeance);
+  add('devise', f.devise);
+  add('mode_paiement', f.mode_paiement);
+  add('mentions_legales', f.mentions_legales);
+
+  const fo = f.fournisseur || {};
+  add('fournisseur_nom', fo.nom);
+  add('fournisseur_adresse', fo.adresse);
+  add('fournisseur_identifiant_fiscal', fo.mf || fo.identifiant_fiscal);
+  add('fournisseur_telephone', fo.telephone);
+  add('fournisseur_email', fo.email);
+
+  const c = f.client || {};
+  add('client_nom', c.nom);
+  add('client_adresse',
+    [c.adresse, c.adresse2, c.adresse3].filter(Boolean).join(', '));
+
+  (f.lignes || []).forEach((l, i) => {
+    const n = i + 1;
+    add(`lignes_${n}_description`, l.description);
+    add(`lignes_${n}_quantite`, l.quantite);
+    add(`lignes_${n}_prix_unitaire`, l.prix_unitaire);
+    add(`lignes_${n}_montant_ht`, l.montant_ht);
+  });
+
+  const t = f.totaux || {};
+  add('totaux_total_ht', t.total_ht);
+  add('totaux_remise', t.remise);
+  add('base_tva', t.base_tva);
+  add('totaux_total_tva', t.total_tva);
+  add('timbre_fiscal', t.timbre_fiscal);
+  add('totaux_total_ttc', t.total_ttc);
+
+  console.log(`[IA] ${fields.length} champs générés`);
   return fields;
 }
-
 // ── Évaluation qualité OCR ─────────────────────────────────────────────────
 
 function evaluerQualite(text, confiance) {

@@ -1,80 +1,104 @@
-﻿<div class="list-container">
-
-  <div class="page-header">
-    <div class="page-title">
-      <mat-icon>history</mat-icon>
-      <div>
-        <h1>Historique des scans</h1>
-        <p>Consultez et gérez vos documents scannés.</p>
-      </div>
+<header class="head">
+  <div class="head-main">
+    <div>
+      <p class="eyebrow">Documents scannés</p>
+      <h1>Historique des scans</h1>
+      <p class="sub">Consultez, filtrez et gérez vos documents traités.</p>
     </div>
-    <button mat-flat-button color="primary" class="primary-action" [routerLink]="['/upload']">
-      <mat-icon>add_a_photo</mat-icon>
-      Nouveau scan
+    <button type="button" class="btn primary" (click)="newScan()"><mat-icon>add</mat-icon>Nouveau scan</button>
+  </div>
+
+  <div class="summary" role="tablist" aria-label="Filtrer par statut">
+    <button type="button" class="kpi" role="tab" [class.active]="filter === 'all'" [attr.aria-selected]="filter === 'all'" (click)="setFilter('all')">
+      <span>Total</span><strong>{{ count('all') }}</strong>
+    </button>
+    <button type="button" class="kpi" role="tab" [class.active]="filter === 'completed'" [attr.aria-selected]="filter === 'completed'" (click)="setFilter('completed')">
+      <span><i class="dot completed"></i>Terminés</span><strong>{{ count('completed') }}</strong>
+    </button>
+    <button type="button" class="kpi" role="tab" [class.active]="filter === 'pending'" [attr.aria-selected]="filter === 'pending'" (click)="setFilter('pending')">
+      <span><i class="dot pending"></i>En attente</span><strong>{{ count('pending') }}</strong>
+    </button>
+    <button type="button" class="kpi" role="tab" [class.active]="filter === 'failed'" [attr.aria-selected]="filter === 'failed'" (click)="setFilter('failed')">
+      <span><i class="dot failed"></i>Échoués</span><strong>{{ count('failed') }}</strong>
     </button>
   </div>
+</header>
+<div class="stitch" aria-hidden="true"></div>
 
-  <!-- Spinner de chargement -->
-  <div class="loading-container" *ngIf="isLoading">
-    <mat-spinner diameter="48" />
-    <p>Loading scans...</p>
+<main class="content">
+  <div class="error" *ngIf="errorMessage" role="alert">
+    <mat-icon>error_outline</mat-icon><span>{{ errorMessage }}</span>
+    <button type="button" (click)="load()">Réessayer</button>
   </div>
 
-  <!-- Message d'erreur -->
-  <div class="error-message" *ngIf="errorMessage">
-    <mat-icon>error_outline</mat-icon>
-    {{ errorMessage }}
-  </div>
-
-  <!-- Liste vide -->
-  <mat-card class="empty-state" *ngIf="!isLoading && scans.length === 0">
-    <mat-icon>inbox</mat-icon>
-    <p>Aucun scan pour le moment</p>
-    <button mat-flat-button color="primary" [routerLink]="['/upload']">
-      Scan du premier document
-    </button>
-  </mat-card>
-
-  <!-- Cartes des scans -->
-  <mat-card class="cards-card" *ngIf="!isLoading && scans.length > 0">
-    <mat-card-content>
-      <div class="cards-header">
-        <div>
-          <h2>{{ scans.length }} documents scannés</h2>
-          <p>Ouvre un scan pour vérifier ses champs ou supprimer un document.</p>
-        </div>
-        <span class="cards-summary">Dernières analyses</span>
+  <section class="card">
+    <div class="toolbar">
+      <div class="title">
+        <h2>{{ filtered.length }} document{{ filtered.length > 1 ? 's' : '' }}</h2>
+        <p>Cliquez sur une ligne pour voir le détail</p>
       </div>
+      <label class="search">
+        <mat-icon>search</mat-icon>
+        <input type="search" [(ngModel)]="search" (ngModelChange)="onSearch()" placeholder="Rechercher un nom ou un numéro…" aria-label="Rechercher un document" />
+      </label>
+    </div>
 
-      <div class="cards-list">
-        <mat-card class="scan-card" *ngFor="let scan of scans" (click)="viewScan(scan.id)">
-          <div class="scan-card-main">
-            <div class="scan-card-left">
-              <div class="scan-id">#{{ scan.id }}</div>
-              <div class="filename-cell">
-                <mat-icon>description</mat-icon>
-                <div class="filename-text">{{ scan.filename }}</div>
-              </div>
-            </div>
+    <div class="state" *ngIf="isLoading"><mat-spinner diameter="32"></mat-spinner><p>Chargement des documents…</p></div>
 
-            <div class="scan-card-right">
-              <span class="scan-date">{{ scan.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-              <span class="status-badge" [ngClass]="'status-' + scan.status">
-                {{ scan.status }}
+    <div class="state" *ngIf="!isLoading && !filtered.length">
+      <div class="empty-ico"><mat-icon>folder_open</mat-icon></div>
+      <p><strong>Aucun document trouvé</strong></p>
+      <p>{{ scans.length ? 'Modifiez votre recherche ou le filtre de statut.' : 'Scannez votre première facture pour commencer.' }}</p>
+      <button *ngIf="!scans.length" type="button" class="btn primary" (click)="newScan()"><mat-icon>add</mat-icon>Nouveau scan</button>
+    </div>
+
+    <div class="table-wrap" *ngIf="!isLoading && pageItems.length">
+      <table class="list">
+        <thead>
+          <tr>
+            <th class="id">#</th><th>Document</th><th *ngIf="hasUsers">Utilisateur</th><th>Statut</th><th>Date</th><th class="act">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of pageItems" tabindex="0" (click)="open(s)" (keyup.enter)="open(s)">
+            <td class="id">#{{ s.id }}</td>
+            <td>
+              <span class="file">
+                <span class="ficon"><mat-icon>{{ fileIcon(s.filename) }}</mat-icon></span>
+                <span class="fname" [matTooltip]="s.filename">{{ s.filename }}</span>
               </span>
-              <div class="scan-actions" (click)="$event.stopPropagation()">
-                <button mat-icon-button color="primary" aria-label="Voir le scan" (click)="viewScan(scan.id)">
-                  <mat-icon>visibility</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" aria-label="Supprimer le scan" (click)="deleteScan(scan.id); $event.stopPropagation()">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
-            </div>
-          </div>
-        </mat-card>
-      </div>
-    </mat-card-content>
-  </mat-card>
+            </td>
+            <td *ngIf="hasUsers" class="muted">{{ s.user_email }}</td>
+            <td><span class="chip" [ngClass]="s.status">{{ statusLabel(s.status) }}</span></td>
+            <td class="date">{{ s.date | date:'dd/MM/yyyy' }}<span>{{ s.date | date:'HH:mm' }}</span></td>
+            <td class="act" (keyup.enter)="$event.stopPropagation()">
+              <button type="button" class="icon-btn" (click)="open(s); $event.stopPropagation()" matTooltip="Ouvrir" aria-label="Ouvrir le document"><mat-icon>open_in_new</mat-icon></button>
+              <button type="button" class="icon-btn danger" (click)="remove(s, $event)" matTooltip="Supprimer" aria-label="Supprimer le document"><mat-icon>delete_outline</mat-icon></button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-</div>
+    <footer class="pager" *ngIf="!isLoading && filtered.length > pageSize">
+      <span>{{ from }}–{{ to }} sur {{ filtered.length }}</span>
+      <div>
+        <button type="button" class="icon-btn" (click)="prev()" [disabled]="page === 1" aria-label="Page précédente"><mat-icon>chevron_left</mat-icon></button>
+        <span class="pg">Page {{ page }} / {{ totalPages }}</span>
+        <button type="button" class="icon-btn" (click)="next()" [disabled]="page === totalPages" aria-label="Page suivante"><mat-icon>chevron_right</mat-icon></button>
+      </div>
+    </footer>
+  </section>
+</main>
+
+<app-confirm-dialog
+  [open]="!!toDelete"
+  tone="danger"
+  icon="delete_outline"
+  title="Supprimer ce document ?"
+  message="Cette action est définitive : le document et toutes ses données extraites seront supprimés."
+  [detail]="toDelete?.filename"
+  confirmLabel="Supprimer"
+  [busy]="deleting"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()" />

@@ -1,247 +1,175 @@
-<div class="detail-shell">
+<!-- Champ éditable : clic = modifier · Entrée = enregistrer · Échap = annuler · survol = ✓ ✗ -->
+<ng-template #fld let-f let-ph="ph">
+  <span class="fld" *ngIf="f; else none">
+    <input *ngIf="editingFieldId === f.id; else shown" class="fld-edit" [(ngModel)]="editingValue"
+           (keyup.enter)="saveEdit(f)" (keyup.escape)="cancelEdit()" aria-label="Modifier la valeur" />
+    <ng-template #shown>
+      <button type="button" class="fld-val" [class.ok]="f.is_validated" [class.ko]="f.is_rejected"
+              [class.empty]="!display(f)" (click)="startEdit(f)">{{ display(f) || ph || 'À renseigner' }}</button>
+      <span class="mini">
+        <button type="button" class="good" [class.on]="f.is_validated" (click)="validateSingleField(f, true)" aria-label="Valider"><mat-icon>check</mat-icon></button>
+        <button type="button" class="bad" [class.on]="f.is_rejected" (click)="validateSingleField(f, false)" aria-label="Rejeter"><mat-icon>close</mat-icon></button>
+      </span>
+    </ng-template>
+  </span>
+  <ng-template #none><span class="muted">—</span></ng-template>
+</ng-template>
 
-  <!-- ── Loading ── -->
-  <div class="loading-container" *ngIf="isLoading">
-    <mat-spinner diameter="40"></mat-spinner>
-    <p>Chargement du document...</p>
-  </div>
+<div class="page">
+  <div *ngIf="isLoading" class="state"><mat-spinner diameter="36"></mat-spinner><p>Chargement du document…</p></div>
 
   <ng-container *ngIf="!isLoading && scan">
 
-    <!-- ── Header ── -->
-    <div class="detail-header">
-      <div class="header-left">
-        <button mat-icon-button [routerLink]="['/scans']">
-          <mat-icon>arrow_back</mat-icon>
-        </button>
-        <div>
-          <p class="overline">Détail du scan</p>
+    <!-- Barre du haut -->
+    <header class="bar">
+      <button type="button" class="back" (click)="router.navigate(['/scans'])" aria-label="Retour à l'historique"><mat-icon>arrow_back</mat-icon></button>
+
+      <div class="name">
+        <ng-container *ngIf="!renaming; else renameForm">
           <h1>{{ scan.filename }}</h1>
-          <p class="subtitle">#{{ scan.id }} · Facture d'achat</p>
-        </div>
+          <button type="button" class="rename" (click)="startRename()" matTooltip="Renommer le document"><mat-icon>edit</mat-icon></button>
+        </ng-container>
+        <ng-template #renameForm>
+          <div class="rename-box">
+            <input #nameInput class="name-input" [(ngModel)]="newName" maxlength="120"
+                   (keyup.enter)="saveRename()" (keyup.escape)="cancelRename()" aria-label="Nom du document" />
+            <span class="ext">{{ ext }}</span>
+          </div>
+          <button type="button" class="btn primary sm" (click)="saveRename()" [disabled]="!newName.trim()">Enregistrer</button>
+          <button type="button" class="btn quiet sm" (click)="cancelRename()">Annuler</button>
+        </ng-template>
+        <span class="chip" [ngClass]="scan.status">{{ scan.status === 'completed' ? 'Terminé' : scan.status }}</span>
       </div>
 
+      <div class="actions">
+        <button type="button" class="btn quiet" (click)="sendEmail()"><mat-icon>mail</mat-icon>Envoyer</button>
+        <button type="button" class="btn quiet" (click)="duplicateScan()"><mat-icon>content_copy</mat-icon>Dupliquer</button>
+        <button type="button" class="btn quiet" (click)="print()"><mat-icon>print</mat-icon>Imprimer</button>
+        <button type="button" class="btn primary" (click)="downloadExcel()"><mat-icon>download</mat-icon>Exporter Excel</button>
+      </div>
+    </header>
+    <div class="stitch" aria-hidden="true"></div>
 
+    <div class="error" *ngIf="errorMessage" role="alert"><mat-icon>error_outline</mat-icon>{{ errorMessage }}</div>
 
-      <div class="header-actions">
-        <span class="status-chip" [ngClass]="'status-' + scan.status">{{ scan.status }}</span>
-        <button mat-stroked-button color="primary" class="btn-action" (click)="sendEmail()">
-          <mat-icon>email</mat-icon>Envoyer
-        </button>
-        <button mat-flat-button color="primary" class="btn-action"
-                (click)="downloadExcel()"
-                [disabled]="fields.length === 0">
-          <mat-icon>download</mat-icon>Exporter Excel
-        </button>
+    <div class="workspace">
+
+      <!-- Facture reconstituée -->
+      <main class="paper">
+        <section class="p-head">
+          <div class="supplier">
+            <h2><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('fournisseur_nom'), ph: 'Nom du fournisseur' }"></ng-container></h2>
+            <p><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('fournisseur_adresse'), ph: 'Adresse' }"></ng-container></p>
+            <p *ngIf="getField('fournisseur_identifiant_fiscal')"><span class="k">MF</span> <ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('fournisseur_identifiant_fiscal') }"></ng-container></p>
+            <p *ngIf="getField('fournisseur_telephone')"><span class="k">Tél.</span> <ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('fournisseur_telephone') }"></ng-container></p>
+            <p *ngIf="getField('fournisseur_email')"><span class="k">Email</span> <ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('fournisseur_email') }"></ng-container></p>
+          </div>
+          <div class="invoice-id">
+            <div class="doc-type">Facture</div>
+            <dl>
+              <dt>N°</dt><dd><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('numero_facture'), ph: 'N° de facture' }"></ng-container></dd>
+              <dt>Émise le</dt><dd><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('date_emission'), ph: 'jj/mm/aaaa' }"></ng-container></dd>
+              <dt>Échéance</dt><dd><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('date_echeance'), ph: 'jj/mm/aaaa' }"></ng-container></dd>
+              <dt>Devise</dt><dd><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('devise'), ph: 'EUR' }"></ng-container></dd>
+            </dl>
+          </div>
+        </section>
+
+        <section class="billed">
+          <span class="k">Facturé à</span>
+          <strong><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('client_nom'), ph: 'Nom du client' }"></ng-container></strong>
+          <p><ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('client_adresse'), ph: 'Adresse du client' }"></ng-container></p>
+          <p *ngIf="getField('client_identifiant_fiscal')"><span class="k">MF</span> <ng-container *ngTemplateOutlet="fld; context: { $implicit: getField('client_identifiant_fiscal') }"></ng-container></p>
+        </section>
+
+        <section class="table-wrap" *ngIf="articles.length">
+          <table class="lines">
+            <thead><tr><th>#</th><th>Désignation</th><th class="r">Qté</th><th class="r">Prix unitaire</th><th class="r">Total HT</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let a of articles">
+                <td class="idx">{{ a.num }}</td>
+                <td><ng-container *ngTemplateOutlet="fld; context: { $implicit: a.desc }"></ng-container></td>
+                <td class="r"><ng-container *ngTemplateOutlet="fld; context: { $implicit: a.qte }"></ng-container></td>
+                <td class="r"><ng-container *ngTemplateOutlet="fld; context: { $implicit: a.pu }"></ng-container></td>
+                <td class="r"><ng-container *ngTemplateOutlet="fld; context: { $implicit: a.total }"></ng-container></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="sums">
+          <div class="sum" *ngFor="let n of ['totaux_total_ht','totaux_remise','base_tva','totaux_total_tva','timbre_fiscal']">
+            <ng-container *ngIf="getField(n) as f">
+              <span>{{ formatFieldName(f.field_name) }}</span>
+              <ng-container *ngTemplateOutlet="fld; context: { $implicit: f }"></ng-container>
+            </ng-container>
+          </div>
+          <div class="sum grand" *ngIf="getField('totaux_total_ttc') as t">
+            <span>Total TTC</span>
+            <ng-container *ngTemplateOutlet="fld; context: { $implicit: t }"></ng-container>
+            <small>{{ getFieldDisplay('devise') }}</small>
+          </div>
+        </section>
+
+        <footer class="p-foot" *ngIf="getFieldsByCategory('autres').length">
+          <div *ngFor="let f of getFieldsByCategory('autres')">
+            <span class="k">{{ formatFieldName(f.field_name) }}</span>
+            <ng-container *ngTemplateOutlet="fld; context: { $implicit: f }"></ng-container>
+          </div>
+        </footer>
+      </main>
+
+      <!-- Panneau de contrôle -->
+      <aside class="rail">
+        <section class="panel">
+          <h3>Contrôle des données</h3>
+          <div class="ctl">
+            <div class="ring" [style.--p]="validationPercentage + '%'"><strong>{{ validationPercentage }}%</strong></div>
+            <ul>
+              <li><i class="dot ok"></i>{{ countBy('ok') }} validés</li>
+              <li><i class="dot todo"></i>{{ countBy('todo') }} à vérifier</li>
+              <li><i class="dot ko"></i>{{ countBy('ko') }} rejetés</li>
+            </ul>
+          </div>
+          <button type="button" class="btn primary block" (click)="validateAll()" [disabled]="!countBy('todo')">
+            <mat-icon>done_all</mat-icon>Tout valider
+          </button>
+          <p class="hint">Cliquez sur une valeur pour la corriger. Survolez-la pour la valider ou la rejeter.</p>
+          <p class="hint q" *ngIf="qualite" [ngClass]="qualite.niveau">Qualité de lecture : {{ qualite.niveau }} ({{ qualite.score }}%)</p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h3>Document d'origine</h3>
+            <div class="zoom">
+              <button type="button" (click)="zoomOut()" aria-label="Réduire"><mat-icon>remove</mat-icon></button>
+              <span>{{ zoomLevel * 100 | number:'1.0-0' }}%</span>
+              <button type="button" (click)="zoomIn()" aria-label="Agrandir"><mat-icon>add</mat-icon></button>
+            </div>
+          </div>
+          <div class="doc-box">
+            <div class="doc-view" role="button" tabindex="0" aria-label="Afficher le document en grand"
+                 (click)="openLightbox()" (keyup.enter)="openLightbox()">
+              <img *ngIf="imageBase64" [src]="imageBase64" [style.width.%]="zoomLevel * 100" alt="Document scanné" />
+            </div>
+            <span class="expand"><mat-icon>zoom_out_map</mat-icon>Afficher en grand</span>
+          </div>
+          <p class="hint">Scan n°{{ scan.id }} · {{ scan.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+        </section>
+      </aside>
+    </div>
+  </ng-container>
+  <!-- Document en grand -->
+  <div class="lb" *ngIf="lightbox && imageBase64" (click)="closeLightbox()" role="dialog" aria-modal="true" aria-label="Document en grand">
+    <div class="lb-bar" (click)="$event.stopPropagation()">
+      <span>{{ scan?.filename }}</span>
+      <div>
+        <button type="button" (click)="toggleLbZoom()" [attr.aria-label]="lbZoom ? 'Réduire' : 'Agrandir'"><mat-icon>{{ lbZoom ? 'zoom_out' : 'zoom_in' }}</mat-icon></button>
+        <button type="button" (click)="closeLightbox()" aria-label="Fermer"><mat-icon>close</mat-icon></button>
       </div>
     </div>
-
-    <!-- ══ Grille 3 colonnes ══ -->
-    <div class="detail-grid">
-
-      <!-- ── Col 1 : Document scanné ── -->
-      <div class="panel preview-panel">
-        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <span class="panel-tag">Document scanné</span>
-            <h2 style="margin:0;">Aperçu</h2>
-          </div>
-          <div class="zoom-controls" *ngIf="imageBase64">
-            <button mat-icon-button (click)="zoomOut()"><mat-icon>remove</mat-icon></button>
-            <button mat-icon-button (click)="zoomIn()"><mat-icon>add</mat-icon></button>
-          </div>
-        </div>
-        <div class="preview-body" style="overflow: auto; max-height: 80vh;">
-          <img *ngIf="imageBase64" [src]="imageBase64" alt="Document" class="preview-image" [style.transform]="'scale(' + zoomLevel + ')'" style="transform-origin: top left; transition: transform 0.2s;" />
-          <div *ngIf="!imageBase64" class="empty-preview">
-            <mat-icon>image_not_supported</mat-icon>
-            <p>Image non disponible</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Col 2 : Dates + Fournisseur + Autres ── -->
-      <div class="panel content-panel-left">
-
-        <!-- Dates -->
-        <div class="section-card" *ngIf="getFieldsByCategory('date').length > 0">
-          <div class="section-card-header"><h3>Dates</h3></div>
-          <div class="section-grid triple">
-            <div class="form-group" *ngFor="let field of getFieldsByCategory('date')">
-              <label>{{ formatFieldName(field.field_name) }}</label>
-              <div class="input-wrap" [class.validated]="field.is_validated">
-                <input *ngIf="editingFieldId !== field.id" class="form-input"
-                       [value]="field.corrected_value || field.field_value" readonly tabindex="0" (focus)="startEdit(field)" (click)="startEdit(field)" />
-                <input *ngIf="editingFieldId === field.id"
-                       [type]="isDateField(field.field_name) ? 'date' : 'text'"
-                       class="form-input editing" [(ngModel)]="editingValue" (blur)="saveEdit(field)" (keyup.enter)="saveEdit(field)" (keyup.escape)="cancelEdit()" autofocus />
-                <div class="input-actions" *ngIf="editingFieldId === field.id">
-                  <button mat-icon-button color="primary" (click)="saveEdit(field)"><mat-icon>check</mat-icon></button>
-                  <button mat-icon-button color="warn"    (mousedown)="$event.preventDefault(); cancelEdit()"><mat-icon>close</mat-icon></button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Fournisseur & client -->
-        <div class="section-card" *ngIf="getFieldsByCategory('fournisseur').length > 0">
-          <div class="section-card-header"><h3>Fournisseur &amp; client</h3></div>
-          <div class="section-grid triple">
-            <div class="form-group" *ngFor="let field of getFieldsByCategory('fournisseur')">
-              <label>{{ formatFieldName(field.field_name) }}</label>
-              <div class="input-wrap" [class.validated]="field.is_validated">
-                <ng-container *ngIf="field.field_name === 'devise'">
-                  <select class="form-input" [ngModel]="field.corrected_value || field.field_value" (ngModelChange)="editingValue = $event; saveEdit(field)">
-                    <option value="TND">Dinar Tunisien (TND)</option>
-                    <option value="USD">Dollar Américain (USD)</option>
-                    <option value="EUR">Euro (EUR)</option>
-                    <option value="GBP">Livre Sterling (GBP)</option>
-                    <option value="CHF">Franc Suisse (CHF)</option>
-                  </select>
-                </ng-container>
-                <ng-container *ngIf="field.field_name !== 'devise'">
-                  <input *ngIf="editingFieldId !== field.id" class="form-input"
-                         [value]="field.corrected_value || field.field_value" readonly tabindex="0" (focus)="startEdit(field)" (click)="startEdit(field)" />
-                  <input *ngIf="editingFieldId === field.id" type="text"
-                         class="form-input editing" [(ngModel)]="editingValue" (blur)="saveEdit(field)" (keyup.enter)="saveEdit(field)" (keyup.escape)="cancelEdit()" autofocus />
-                  <div class="input-actions" *ngIf="editingFieldId === field.id">
-                    <button mat-icon-button color="primary" (click)="saveEdit(field)"><mat-icon>check</mat-icon></button>
-                    <button mat-icon-button color="warn"    (mousedown)="$event.preventDefault(); cancelEdit()"><mat-icon>close</mat-icon></button>
-                  </div>
-                </ng-container>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Informations complémentaires -->
-        <div class="section-card" *ngIf="getFieldsByCategory('autres').length > 0">
-          <div class="section-card-header"><h3>Informations complémentaires</h3></div>
-          <div class="section-grid triple">
-            <div class="form-group" *ngFor="let field of getFieldsByCategory('autres')">
-              <label>{{ formatFieldName(field.field_name) }}</label>
-              <div class="input-wrap" [class.validated]="field.is_validated">
-                <ng-container *ngIf="field.field_name !== 'devise'">
-                  <input *ngIf="editingFieldId !== field.id" class="form-input"
-                         [value]="field.corrected_value || field.field_value" readonly tabindex="0" (focus)="startEdit(field)" (click)="startEdit(field)" />
-                  <input *ngIf="editingFieldId === field.id" type="text"
-                         class="form-input editing" [(ngModel)]="editingValue" (blur)="saveEdit(field)" (keyup.enter)="saveEdit(field)" (keyup.escape)="cancelEdit()" autofocus />
-                  <div class="input-actions" *ngIf="editingFieldId === field.id">
-                    <button mat-icon-button color="primary" (click)="saveEdit(field)"><mat-icon>check</mat-icon></button>
-                    <button mat-icon-button color="warn"    (mousedown)="$event.preventDefault(); cancelEdit()"><mat-icon>close</mat-icon></button>
-                  </div>
-                </ng-container>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-      <!-- /col-2 -->
-
-      <!-- ── Col 3 : Articles + Totaux + Actions ── -->
-      <div class="panel content-panel-right">
-
-        <!-- Articles -->
-        <div class="section-card" *ngIf="articles.length > 0">
-          <div class="section-card-header"><h3>Articles</h3></div>
-          <div class="table-scroll">
-            <table class="articles-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th *ngIf="articles[0]?.code">Code</th>
-                  <th>Désignation</th>
-                  <th>Qté</th>
-                  <th>Prix Unitaire</th>
-                  <th>Total HT</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let article of articles">
-                  <td class="col-num">{{ article.num }}</td>
-                  <td *ngIf="article.code">
-                    <div class="cell-wrap" [class.validated]="article.code.is_validated">
-                      <span *ngIf="editingFieldId !== article.code.id" class="cell-text" tabindex="0" (focus)="startEdit(article.code)" (click)="startEdit(article.code)">{{ article.code.corrected_value || article.code.field_value || '—' }}</span>
-                      <input *ngIf="editingFieldId === article.code.id" type="text" class="cell-input" [(ngModel)]="editingValue" (blur)="saveEdit(article.code)" (keyup.enter)="saveEdit(article.code)" (keyup.escape)="cancelEdit()" />
-                    </div>
-                  </td>
-                  <td>
-                    <div class="cell-wrap" [class.validated]="article.desc?.is_validated">
-                      <span *ngIf="editingFieldId !== article.desc?.id" class="cell-text" tabindex="0" (focus)="article.desc && startEdit(article.desc)" (click)="article.desc && startEdit(article.desc)">{{ article.desc?.corrected_value || article.desc?.field_value || '—' }}</span>
-                      <input *ngIf="editingFieldId === article.desc?.id" type="text" class="cell-input" [(ngModel)]="editingValue" (blur)="article.desc && saveEdit(article.desc)" (keyup.enter)="article.desc && saveEdit(article.desc)" (keyup.escape)="cancelEdit()" />
-                    </div>
-                  </td>
-                  <td>
-                    <div class="cell-wrap" [class.validated]="article.qte?.is_validated">
-                      <span *ngIf="editingFieldId !== article.qte?.id" class="cell-text center" tabindex="0" (focus)="article.qte && startEdit(article.qte)" (click)="article.qte && startEdit(article.qte)">{{ article.qte?.corrected_value || article.qte?.field_value || '—' }}</span>
-                      <input *ngIf="editingFieldId === article.qte?.id" type="text" class="cell-input center" [(ngModel)]="editingValue" (blur)="article.qte && saveEdit(article.qte)" (keyup.enter)="article.qte && saveEdit(article.qte)" (keyup.escape)="cancelEdit()" />
-                    </div>
-                  </td>
-                  <td>
-                    <div class="cell-wrap" [class.validated]="article.pu?.is_validated">
-                      <span *ngIf="editingFieldId !== article.pu?.id" class="cell-text right" tabindex="0" (focus)="article.pu && startEdit(article.pu)" (click)="article.pu && startEdit(article.pu)">{{ article.pu?.corrected_value || article.pu?.field_value || '—' }}</span>
-                      <input *ngIf="editingFieldId === article.pu?.id" type="text" class="cell-input right" [(ngModel)]="editingValue" (blur)="article.pu && saveEdit(article.pu)" (keyup.enter)="article.pu && saveEdit(article.pu)" (keyup.escape)="cancelEdit()" />
-                    </div>
-                  </td>
-                  <td>
-                    <div class="cell-wrap" [class.validated]="article.total?.is_validated">
-                      <span *ngIf="editingFieldId !== article.total?.id" class="cell-text right" tabindex="0" (focus)="article.total && startEdit(article.total)" (click)="article.total && startEdit(article.total)">{{ article.total?.corrected_value || article.total?.field_value || '—' }}</span>
-                      <input *ngIf="editingFieldId === article.total?.id" type="text" class="cell-input right" [(ngModel)]="editingValue" (blur)="article.total && saveEdit(article.total)" (keyup.enter)="article.total && saveEdit(article.total)" (keyup.escape)="cancelEdit()" />
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Totaux -->
-        <div class="section-card" *ngIf="getFieldsByCategory('totaux').length > 0">
-          <div class="section-card-header"><h3>Totaux</h3></div>
-          <div class="totaux-grid">
-            <div class="totaux-row" *ngFor="let field of getFieldsByCategory('totaux')"
-                 [class.total-ttc]="field.field_name.includes('total_ttc')">
-              <span>{{ formatFieldName(field.field_name) }}</span>
-              <div class="input-wrap small" [class.validated]="field.is_validated">
-                <input *ngIf="editingFieldId !== field.id" class="form-input text-right"
-                       [value]="field.corrected_value || field.field_value" readonly tabindex="0" (focus)="startEdit(field)" (click)="startEdit(field)" />
-                <input *ngIf="editingFieldId === field.id" type="text"
-                       class="form-input text-right editing" [(ngModel)]="editingValue" (blur)="saveEdit(field)" (keyup.enter)="saveEdit(field)" (keyup.escape)="cancelEdit()" />
-                <div class="input-actions" *ngIf="editingFieldId === field.id">
-                  <button mat-icon-button color="primary" (click)="saveEdit(field)"><mat-icon>check</mat-icon></button>
-                  <button mat-icon-button color="warn"    (mousedown)="$event.preventDefault(); cancelEdit()"><mat-icon>close</mat-icon></button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer actions -->
-        <div class="footer-actions">
-          <button mat-stroked-button color="primary" class="primary-btn"
-                  (click)="sendEmail()">
-            <mat-icon>email</mat-icon>Envoyer par e-mail
-          </button>
-          <button mat-raised-button color="primary" class="primary-btn"
-                  (click)="downloadExcel()"
-                  [disabled]="fields.length === 0">
-            <mat-icon>download</mat-icon>Exporter Excel
-          </button>
-        </div>
-
-      </div><!-- /col-3 -->
-
-    </div><!-- /detail-grid -->
-
-  </ng-container>
-
-  <!-- ── Erreur ── -->
-  <div class="error-msg" *ngIf="errorMessage">
-    <mat-icon>error_outline</mat-icon>{{ errorMessage }}
+    <div class="lb-stage" [class.zoomed]="lbZoom">
+      <img [src]="imageBase64" (click)="$event.stopPropagation(); toggleLbZoom()" alt="Document scanné en grand" />
+    </div>
   </div>
-
-
-
 </div>
