@@ -85,7 +85,7 @@ export class ScanListComponent implements OnInit {
   // ── Actions ──────────────────────────────────────────────
 
   open(s: any) { this.router.navigate(['/scans', s.id]); }
-  newScan()    { this.router.navigate(['/scans/new']); }   // ⚠ adapte à ta route « Nouveau scan »
+  newScan()    { this.router.navigate(['/scans/upload']); }
 
   // ── Suppression avec confirmation ────────────────────────
 
